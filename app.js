@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import { SquishyMaterial } from './physics.js';
-import { HOME_RADIUS, clampRadius, pinchRadius } from './zoom.js';
+import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
 const sound = new SquishySound();
@@ -41,7 +41,9 @@ const orbitPointers=new Map();
 let zoomStart=null;
 function turnView(dx=0,dy=0) {
   view.theta -= dx; view.phi = THREE.MathUtils.clamp(view.phi-dy,.12,Math.PI-.12);
-  camera.position.setFromSphericalCoords(view.radius,view.phi,view.theta);
+  const optics=cameraZoom(view.radius);
+  camera.position.setFromSphericalCoords(optics.distance,view.phi,view.theta);
+  camera.zoom=optics.zoom;camera.updateProjectionMatrix();
   camera.lookAt(0,0,0); camera.updateMatrixWorld();
   canvas.dataset.view = `${view.theta.toFixed(3)},${view.phi.toFixed(3)}`;
   canvas.dataset.zoom=(HOME_RADIUS/view.radius).toFixed(3);
