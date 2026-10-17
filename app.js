@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import { SquishyMaterial } from './physics.js';
-import { SquishySound } from './sound.js';
+import { SquishySound } from './sound.js?v=1.3.0';
 const sound = new SquishySound();
 async function unlockSound() {
   await sound.unlock();

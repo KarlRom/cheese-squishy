@@ -1,5 +1,7 @@
 # Cheese, please.
 
+[Open the live squishy](https://karlrom.github.io/cheese-squishy/) · [GitHub repository](https://github.com/KarlRom/cheese-squishy)
+
 A complete mobile-first browser squishy on a pure white background. A rounded 3D cheese cube with sculpted pores on every face, perspective, self-shadowing, free view rotation, local dents, soft dragging, two-finger compression, and deliberately slow, non-oscillating recovery.
 
 ## Run locally
@@ -67,7 +69,7 @@ GitHub Pages provides the public deployment URL in the repository’s **Settings
 
 ## Sound
 
-`sound.js` synthesizes audio locally using the Web Audio API: warm filtered noise, moving resonances, and short pitch-dropping bubble sounds. These are designed squishy effects, not recordings of a physical toy. The graph starts/resumes inside a deliberate user gesture, following [Web Audio autoplay guidance](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Best_practices#autoplay_policy). A smoothed master volume and compressor control transients. Audio pauses when the tab is hidden or the window loses focus and resumes with the next manipulation.
+`sound.js` synthesizes audio locally using the Web Audio API: damp filtered noise, two moving wet resonances, and short granular peel sounds. Pressing makes a low viscous squelch; dragging adds irregular tacky texture; releasing pulls apart a few short sticky strands. There are no pitched bubble oscillators. These are designed squishy effects, not recordings of a physical toy. The graph starts/resumes inside a deliberate user gesture, following [Web Audio autoplay guidance](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Best_practices#autoplay_policy). A smoothed master volume and compressor control transients. Audio pauses when the tab is hidden or the window loses focus and resumes with the next manipulation.
 
 If you cannot hear it, check **The feel → Squishy sounds**, its volume slider, device/media volume, and the browser's site-mute setting, then tap **Give it a squeeze**. Device/browser audio policies can vary. The visual squishy still works without Web Audio support.
 
@@ -75,7 +77,7 @@ If you cannot hear it, check **The feel → Squishy sounds**, its volume slider,
 
 The app targets display refresh with `requestAnimationFrame`, caps pixel ratio at 1.8, uses fewer vertices on small screens, skips mesh/render work when settled, and suspends animation when hidden. Rendering performance varies by phone/GPU; 60 fps is a target, not a guarantee. No real-device multi-touch or device-specific 60 fps claim is made.
 
-JavaScript syntax and seven numerical physics tests were checked during development. Narrow-screen browser QA covered rendering, a held local press, automatic squeezing, reset, the settings panel, drag rotation, tap rotation controls, view reset, and pressing a face after turning the view. Seven real browser audio signal checks also passed: gesture unlock, press output, drag response, mute, unmute/pinch, release silence, and suspension. The app sound switch and volume control were checked in the browser. Physical phone multi-touch and device audio behavior should be tested on your target devices.
+JavaScript syntax and seven numerical physics tests were checked during development. Narrow-screen browser QA covered rendering, a held local press, automatic squeezing, reset, the settings panel, drag rotation, tap rotation controls, view reset, and pressing a face after turning the view. Eight real browser audio signal checks also passed: gesture unlock, press output, drag response, mute, unmute/pinch, release silence, reset-tail cleanup, and suspension. The app sound switch and volume control were checked in the browser. Physical phone multi-touch and device audio behavior should be tested on your target devices.
 
 To rerun the numerical checks with Node.js 20+:
 
@@ -83,7 +85,7 @@ To rerun the numerical checks with Node.js 20+:
 node --test tests/physics.test.js
 ```
 
-For real Web Audio output checks, run the local server and visit **http://localhost:8000/tests/sound.html**, then click **Run audio checks**. It checks gesture unlock, audible signal generation, drag response, mute, unmute/pinch, release silence, and suspension.
+For real Web Audio output checks, run the local server and visit **http://localhost:8000/tests/sound.html**, then click **Run audio checks**. It checks gesture unlock, audible signal generation, drag response, mute, unmute/pinch, release silence, reset-tail cleanup, and suspension.
 
 The numerical tests cover localized deformation, monotonic release, resistance and recovery behavior, pinch direction, stress/floor/reset stability, and frame-rate-independent release.
 

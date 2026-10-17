@@ -24,6 +24,8 @@ button.addEventListener('click',async()=>{
   check(rms()>.0001,'unmute and pinch restore output');
   sound.update(1/60,0);await wait(600);
   check(rms()<.00001,'release fades back to silence');
+  sound.bubble(.8,true);sound.silence();await wait(250);
+  check(rms()<.00001&&sound.grains.size===0,'reset stops sticky tails and cleans up their audio sources');
   sound.suspend();await wait(100);
   check(sound.context.state==='suspended','suspending pauses the audio context');
   result.textContent=lines.join('\n')+'\nAll audio checks passed.';

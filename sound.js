@@ -1,100 +1,127 @@
-/** Gesture-unlocked, sample-free soft squelches that follow live manipulation. */
+/** Live petrolatum-style foley: damp squelches and granular adhesive peels. */
 export class SquishySound {
   constructor() {
-    this.enabled = true; this.volume = .38; this.context = null; this.supported = true;
-    this.previousLoad = 0; this.previousPinch = 0; this.lastBubble = -1; this.motion = 0;
+    this.enabled=true; this.volume=.38; this.context=null; this.supported=true;
+    this.previousLoad=0; this.previousPinch=0; this.lastBubble=-1; this.motion=0;
+    this.grains=new Set();
   }
   async unlock() {
-    if (!this.enabled || !this.supported) return;
+    if(!this.enabled||!this.supported)return;
     try {
-      if (!this.context) this.createGraph();
-      if (this.context && this.context.state !== 'running') await this.context.resume();
-    } catch { this.supported = false; }
+      if(!this.context)this.createGraph();
+      if(this.context&&this.context.state!=='running')await this.context.resume();
+    }catch{this.supported=false;}
   }
   createGraph() {
-    const AudioContext = globalThis.AudioContext || globalThis.webkitAudioContext;
-    if (!AudioContext) { this.supported = false; return; }
-    const c = this.context = new AudioContext({ latencyHint: 'interactive' });
-    const buffer = c.createBuffer(1, c.sampleRate * 3, c.sampleRate);
-    const data = buffer.getChannelData(0);
-    let brown = 0;
-    for (let i = 0; i < data.length; i++) {
-      brown = (brown + (Math.random() * 2 - 1) * .055) / 1.055;
-      data[i] = brown * 3.6;
+    const AudioContext=globalThis.AudioContext||globalThis.webkitAudioContext;
+    if(!AudioContext){this.supported=false;return;}
+    const c=this.context=new AudioContext({latencyHint:'interactive'});
+    this.buffer=c.createBuffer(1,c.sampleRate*3,c.sampleRate);
+    const data=this.buffer.getChannelData(0);
+    let brown=0,grit=0;
+    for(let i=0;i<data.length;i++){
+      const white=Math.random()*2-1;
+      brown=(brown+white*.09)/1.09;
+      // Irregular microscopic breaks in adhesion, rather than a musical pop.
+      if(Math.random()<.0015)grit=.4+Math.random()*.6;
+      grit*=.985;
+      data[i]=brown*2.3+white*(.13+grit*.25);
     }
-    this.source = c.createBufferSource(); this.source.buffer = buffer; this.source.loop = true;
-    const lowpass = c.createBiquadFilter(); lowpass.type = 'lowpass'; lowpass.frequency.value = 1200;
-    this.filter = c.createBiquadFilter(); this.filter.type = 'bandpass';
-    this.filter.frequency.value = 330; this.filter.Q.value = 1.8;
-    this.body = c.createGain(); this.body.gain.value = 0;
-    this.master = c.createGain(); this.master.gain.value = this.enabled ? this.volume : 0;
-    const highpass = c.createBiquadFilter(); highpass.type = 'highpass'; highpass.frequency.value = 65;
-    this.compressor = c.createDynamicsCompressor();
-    this.compressor.threshold.value = -16; this.compressor.knee.value = 12;
-    this.compressor.ratio.value = 5; this.compressor.attack.value = .004; this.compressor.release.value = .14;
-    this.source.connect(lowpass).connect(this.filter).connect(this.body).connect(highpass);
-    highpass.connect(this.compressor).connect(this.master).connect(c.destination);
-    this.wobble = c.createOscillator(); this.wobble.frequency.value = 7;
-    const depth = c.createGain(); depth.gain.value = 45;
+    this.source=c.createBufferSource();this.source.buffer=this.buffer;this.source.loop=true;
+    const highpass=c.createBiquadFilter();highpass.type='highpass';highpass.frequency.value=75;
+    this.filter=c.createBiquadFilter();this.filter.type='lowpass';
+    this.filter.frequency.value=420;this.filter.Q.value=3;
+    this.tackFilter=c.createBiquadFilter();this.tackFilter.type='bandpass';
+    this.tackFilter.frequency.value=1100;this.tackFilter.Q.value=3.5;
+    this.tack=c.createGain();this.tack.gain.value=0;
+    this.body=c.createGain();this.body.gain.value=0;
+    this.master=c.createGain();this.master.gain.value=this.enabled?this.volume:0;
+    this.compressor=c.createDynamicsCompressor();
+    this.compressor.threshold.value=-19;this.compressor.knee.value=15;
+    this.compressor.ratio.value=5;this.compressor.attack.value=.003;this.compressor.release.value=.16;
+    this.source.connect(highpass);
+    highpass.connect(this.filter).connect(this.body).connect(this.compressor);
+    highpass.connect(this.tackFilter).connect(this.tack).connect(this.compressor);
+    this.compressor.connect(this.master).connect(c.destination);
+    this.wobble=c.createOscillator();this.wobble.frequency.value=9;
+    const depth=c.createGain();depth.gain.value=75;
     this.wobble.connect(depth).connect(this.filter.frequency);
-    this.source.start(); this.wobble.start();
+    this.source.start();this.wobble.start();
   }
-  setPreferences(enabled, volume) {
-    this.enabled = enabled; this.volume = Math.min(1, Math.max(0, volume));
-    if (this.context && this.master) {
-      const now = this.context.currentTime;
+  setPreferences(enabled,volume){
+    this.enabled=enabled;this.volume=Math.min(1,Math.max(0,volume));
+    if(this.context&&this.master){
+      const now=this.context.currentTime;
       this.master.gain.cancelScheduledValues(now);
-      this.master.gain.setTargetAtTime(enabled ? this.volume : 0, now, .025);
+      this.master.gain.setTargetAtTime(enabled?this.volume:0,now,.025);
     }
-    if (!enabled) this.silence();
+    if(!enabled)this.silence();
   }
-  drag(pixelsPerSecond) { this.motion = Math.max(this.motion, Math.min(1, pixelsPerSecond / 650)); }
-  bubble(strength, releasing = false) {
-    const c = this.context;
-    if (!c || c.state !== 'running' || !this.enabled) return;
-    const now = c.currentTime;
-    if (now - this.lastBubble < .10) return;
-    this.lastBubble = now;
-    const oscillator = c.createOscillator(); oscillator.type = 'sine';
-    const gain = c.createGain();
-    oscillator.frequency.setValueAtTime((releasing ? 165 : 230) + Math.random() * 110, now);
-    oscillator.frequency.exponentialRampToValueAtTime(releasing ? 100 : 65, now + .12);
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(.11 * strength, now + .009);
-    gain.gain.exponentialRampToValueAtTime(.0001, now + .16);
-    oscillator.connect(gain).connect(this.compressor);
-    oscillator.start(now); oscillator.stop(now + .18);
-    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+  drag(pixelsPerSecond){this.motion=Math.max(this.motion,Math.min(1,pixelsPerSecond/550));}
+  // Short resonant noise packets mimic sticky strings pulling apart. No pitched sine pops.
+  bubble(strength,releasing=false){
+    const c=this.context;
+    if(!c||c.state!=='running'||!this.enabled||this.grains.size>8)return;
+    const now=c.currentTime;
+    if(now-this.lastBubble<.095)return;
+    this.lastBubble=now;
+    const count=releasing?3:2;
+    for(let n=0;n<count;n++){
+      const start=now+n*(releasing?.062:.035)+Math.random()*.012;
+      const duration=(releasing?.17:.12)+Math.random()*.045;
+      const source=c.createBufferSource();source.buffer=this.buffer;
+      source.playbackRate.value=.65+Math.random()*.35;
+      const wet=c.createBiquadFilter();wet.type='lowpass';wet.Q.value=5+Math.random()*2;
+      // A tacky opening sound followed by a damp closing squelch.
+      wet.frequency.setValueAtTime(releasing?350:650,start);
+      wet.frequency.exponentialRampToValueAtTime(releasing?1250:230,start+duration*.4);
+      wet.frequency.exponentialRampToValueAtTime(160,start+duration);
+      const gain=c.createGain();
+      gain.gain.setValueAtTime(0,start);
+      gain.gain.linearRampToValueAtTime(strength*.44/(1+n*.55),start+.008);
+      gain.gain.exponentialRampToValueAtTime(.0001,start+duration);
+      source.connect(wet).connect(gain).connect(this.compressor);
+      const grain={source,gain};this.grains.add(grain);
+      source.onended=()=>{source.disconnect();wet.disconnect();gain.disconnect();this.grains.delete(grain);};
+      source.start(start,Math.random()*2);source.stop(start+duration+.025);
+    }
   }
-  update(dt, load, pinch = 0) {
-    const loadChange = Math.abs(load - this.previousLoad) / Math.max(dt, .008);
-    const pinchChange = Math.abs(pinch - this.previousPinch) / Math.max(dt, .008);
-    const released = this.previousLoad > .05 && load <= .001;
-    this.previousLoad = load; this.previousPinch = pinch;
-    this.motion *= Math.exp(-dt * 12);
-    const c = this.context;
-    if (!c || c.state !== 'running' || !this.enabled || !this.supported) return;
-    const now = c.currentTime;
-    const movement = Math.min(1, loadChange * .55 + pinchChange * .35 + this.motion);
-    // Texture subsides during a stationary hold, with silence after release.
-    const amount = load > .001 ? Math.min(.7, movement * .62 + load * .025) : 0;
-    this.body.gain.setTargetAtTime(amount, now, .035);
-    this.filter.frequency.setTargetAtTime(180 + movement * 650 + pinch * 180, now, .045);
-    this.filter.Q.setTargetAtTime(1.3 + movement * 2.1, now, .045);
-    this.source.playbackRate.setTargetAtTime(.7 + movement * .55, now, .05);
-    this.wobble.frequency.setTargetAtTime(5 + movement * 18, now, .05);
-    if (released) this.bubble(.45, true);
-    else if (movement > .22 && now - this.lastBubble > .15 + Math.random() * .17) this.bubble(.35 + movement * .65);
+  update(dt,load,pinch=0){
+    const delta=(load-this.previousLoad)/Math.max(dt,.008);
+    const pinchChange=Math.abs(pinch-this.previousPinch)/Math.max(dt,.008);
+    const released=this.previousLoad>.05&&load<=.001;
+    this.previousLoad=load;this.previousPinch=pinch;
+    this.motion*=Math.exp(-dt*9);
+    const c=this.context;
+    if(!c||c.state!=='running'||!this.enabled||!this.supported)return;
+    const now=c.currentTime;
+    const movement=Math.min(1,Math.abs(delta)*.48+pinchChange*.4+this.motion);
+    const active=load>.001;
+    this.body.gain.setTargetAtTime(active?movement*.58+load*.009:0,now,.025);
+    this.tack.gain.setTargetAtTime(active?movement*(.065+this.motion*.13):0,now,.018);
+    this.filter.frequency.setTargetAtTime(250+movement*350+pinch*130,now,.04);
+    this.filter.Q.setTargetAtTime(2.5+movement*2.5,now,.04);
+    this.tackFilter.frequency.setTargetAtTime(700+this.motion*1050+movement*170,now,.035);
+    this.source.playbackRate.setTargetAtTime(.62+movement*.33,now,.05);
+    this.wobble.frequency.setTargetAtTime(8+movement*22,now,.05);
+    if(released)this.bubble(.7,true);
+    else if(movement>.2&&now-this.lastBubble>.12+Math.random()*.12)this.bubble(.4+movement*.5,this.motion>.25);
   }
-  silence() {
-    this.previousLoad = 0; this.previousPinch = 0; this.motion = 0;
-    if (!this.context || !this.body) return;
-    const now = this.context.currentTime;
-    this.body.gain.cancelScheduledValues(now);
-    this.body.gain.setTargetAtTime(0, now, .015);
+  silence(){
+    this.previousLoad=0;this.previousPinch=0;this.motion=0;
+    if(!this.context||!this.body)return;
+    const now=this.context.currentTime;
+    for(const node of [this.body,this.tack]){
+      node.gain.cancelScheduledValues(now);node.gain.setTargetAtTime(0,now,.012);
+    }
+    for(const grain of this.grains){
+      grain.gain.gain.cancelScheduledValues(now);
+      grain.gain.gain.setTargetAtTime(0,now,.008);
+      grain.source.stop(now+.045);
+    }
   }
-  suspend() {
+  suspend(){
     this.silence();
-    if (this.context && this.context.state === 'running') this.context.suspend().catch(() => {});
+    if(this.context&&this.context.state==='running')this.context.suspend().catch(()=>{});
   }
 }
