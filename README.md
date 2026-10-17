@@ -47,7 +47,7 @@ The visible interface contains only the cheese and essential controls. Instructi
 - **Reset:** immediately restores the mesh and starting view, retaining your feel settings and selected interaction mode.
 - **Keyboard:** Tab to the canvas; hold Space or Enter to squeeze. In Squish mode, arrow keys move and briefly activate a front-face press; in Rotate mode they turn the view. R resets when the canvas is focused. Tab to the separate squeeze/reset buttons for ordinary button operation. Escape closes settings. Sliders support standard keyboard input.
 - **Reduced motion:** the system preference removes the whole-cube squeeze animation; direct local deformation remains available. There are no idle motions or automatic camera movements.
-- Controls have accessible names, visible keyboard focus, and status announcements. No vibration, trackers, analytics, microphone access, or audio downloads are required.
+- Controls have accessible names, visible keyboard focus, and status announcements. No vibration, trackers, analytics or microphone access are required. The small foley file ships with the app and is fetched from the same host.
 
 ## Deploy to GitHub Pages
 
@@ -72,7 +72,9 @@ GitHub Pages provides the public deployment URL in the repository’s **Settings
 
 ## Sound
 
-`sound.js` synthesizes audio locally using the Web Audio API: damp filtered noise, two moving wet resonances, and short granular peel sounds. Touching or clicking the cheese makes an immediate tacky rubber contact sound, even if the tap is faster than one animation frame. Lifting off triggers a separate short adhesive peel. These contact sounds respect mute, volume, reset and tab suspension; rotating or pressing empty space does not trigger them. Pressing makes a low viscous squelch; dragging adds irregular tacky texture; releasing pulls apart a few short sticky strands. There are no pitched bubble oscillators. These are designed squishy effects, not recordings of a physical toy. The graph starts/resumes inside a deliberate user gesture, following [Web Audio autoplay guidance](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Best_practices#autoplay_policy). A smoothed master volume and compressor control transients. Audio pauses when the tab is hidden or the window loses focus and resumes with the next manipulation.
+`sound.js` plays twelve short excerpts of [“Slime” by qubodup](https://freesound.org/people/qubodup/sounds/127449/), a CC0 recording of real sticky slime. The audio is included locally in `assets/sounds/`; there are no third-party audio requests at runtime. See `assets/sounds/CREDITS.md` for source, license and edit details. The app preloads the small WAV and creates/resumes audio after a user gesture.
+
+Different recorded takes provide natural variation for contact, pressing, dragging and lift-off. Playback speed varies only ±2%; there are no oscillators, resonant pitch sweeps, synthetic crackles or continuous noise loops. Soft edge fades and gentle compression control transitions. A held, motionless press becomes quiet. This is recorded slime foley, not a recording of the pictured cheese toy. Audio pauses when hidden and resumes with the next manipulation.
 
 If you cannot hear it, check **Settings → Sound**, its volume slider, device/media volume, and the browser's site-mute setting, then tap **Squeeze**. Device/browser audio policies can vary. The visual squishy still works without Web Audio support.
 
@@ -102,7 +104,8 @@ The numerical tests also verify that all six automatic squeeze profiles produce 
 - `physics.js` — standalone deformation solver
 - `squeezes.js` — six automatic squeeze profiles
 - `zoom.js` — bounded two-finger zoom calculation
-- `sound.js` — live gesture-driven procedural squishy audio
+- `sound.js` — live gesture-driven recorded foley
+- `assets/sounds/` — CC0 recording excerpts and provenance
 - `vendor/three.module.js` — pinned Three.js 0.170.0
 - `vendor/THREE-LICENSE.txt` — Three.js MIT license
 - `tests/physics.test.js` — numerical verification
