@@ -1,4 +1,4 @@
-import { makePearl } from './toy-geometry.js?v=2.2.0';
+import { makePearl } from './toy-geometry.js?v=2.3.0';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
 import { SquishyMaterial } from './physics.js';
@@ -54,7 +54,7 @@ function turnView(dx=0,dy=0) {
 function setZoom(radius){view.radius=clampRadius(radius);turnView();}
 function resetView() {view.theta=homeView.theta;view.phi=homeView.phi;view.radius=HOME_RADIUS;turnView();}
 turnView();
-scene.add(new THREE.HemisphereLight(0xfff9e9, 0xd6bd8a, 1.0));
+const hemisphere=new THREE.HemisphereLight(0xfff9e9,0xd6bd8a,1.0);scene.add(hemisphere);
 const key = new THREE.DirectionalLight(0xfff9ed, 3.0);
 key.position.set(-3, 6, 5);
 key.castShadow=true; key.shadow.mapSize.set(1024,1024);
@@ -77,6 +77,34 @@ const environment = pmrem.fromScene(studio, 0.08, 0.1, 30);
 scene.environment = environment.texture;
 pmrem.dispose();
 for (const object of studio.children) { object.geometry.dispose(); object.material.dispose(); }
+
+// Pearl needs reflected light shapes, rather than a brighter diffuse surface.
+// Soft gradients on these private studio cards produce broad nacre highlights.
+// The cards are baked once and never appear in the white scene itself.
+function makePearlEnvironment(){
+  const room=new THREE.Scene();room.background=new THREE.Color(0x777981);
+  const panelCanvas=document.createElement('canvas');panelCanvas.width=panelCanvas.height=128;
+  const context=panelCanvas.getContext('2d');
+  const glow=context.createRadialGradient(64,64,14,64,64,64);
+  glow.addColorStop(0,'#ffffff');glow.addColorStop(.64,'#fbfbfb');glow.addColorStop(.88,'#a5a5a5');glow.addColorStop(1,'#000000');
+  context.fillStyle=glow;context.fillRect(0,0,128,128);
+  const texture=new THREE.CanvasTexture(panelCanvas);texture.colorSpace=THREE.SRGBColorSpace;
+  function card(w,h,position,strength,color=0xffffff,soft=true){
+    const material=new THREE.MeshBasicMaterial({color,map:soft?texture:null,side:THREE.DoubleSide});
+    material.color.multiplyScalar(strength);
+    const panel=new THREE.Mesh(new THREE.PlaneGeometry(w,h),material);
+    panel.position.set(...position);panel.lookAt(0,0,0);room.add(panel);
+  }
+  card(5.5,3.6,[-3,4.6,4.2],5.0); // Broad creamy upper-left reflection.
+  card(1.2,5.0,[4.2,1.3,3.0],3.0,0xf4f2ff); // Narrow silver ribbon.
+  card(4.5,2.2,[-1.0,2.0,-4.0],2.4,0xfff2e9);
+  card(6.5,4.0,[0,-4.0,2.0],.12,0x85828b,false); // Contour below the milky body.
+  const generator=new THREE.PMREMGenerator(renderer);
+  const result=generator.fromScene(room,.025,.1,30);generator.dispose();
+  for(const panel of room.children){panel.geometry.dispose();panel.material.dispose();}
+  texture.dispose();return result;
+}
+let pearlEnvironment=null;
 
 // Regular grid on six faces, welded BEFORE rounding so all edges stay seamless.
 function makeCheese(segments) {
@@ -154,13 +182,14 @@ function makeCheese(segments) {
 function createToy(id){
   const pearl=id==='pearl';
   const geometry=pearl?makePearl(64):makeCheese(matchMedia('(max-width: 600px)').matches?64:80);
+  if(pearl&&!pearlEnvironment)pearlEnvironment=makePearlEnvironment();
   const material=new THREE.MeshPhysicalMaterial(pearl?{
-    color:0xf4e9e8,roughness:.19,metalness:.12,
-    clearcoat:1,clearcoatRoughness:.13,ior:1.46,
-    iridescence:.48,iridescenceIOR:1.32,iridescenceThicknessRange:[240,420],
-    sheen:.32,sheenColor:0xffedf8,sheenRoughness:.35,
-    transmission:.16,thickness:.85,attenuationColor:0xffe9dc,attenuationDistance:2.4,
-    envMapIntensity:1.1
+    color:0xfff6ef,vertexColors:true,roughness:.23,metalness:.08,
+    clearcoat:1,clearcoatRoughness:.065,ior:1.58,specularIntensity:1.15,
+    iridescence:.65,iridescenceIOR:1.36,iridescenceThicknessRange:[300,390],
+    sheen:.10,sheenColor:0xffe5f2,sheenRoughness:.45,
+    transmission:.22,thickness:1.1,attenuationColor:0xf7e5df,attenuationDistance:3.2,
+    envMap:pearl?pearlEnvironment.texture:null,envMapIntensity:1.35
   }:{color:0xffffff,vertexColors:true,roughness:.28,metalness:0,clearcoat:.30,clearcoatRoughness:.30,envMapIntensity:.65});
   const mesh=new THREE.Mesh(geometry,material);
   geometry.boundingSphere.radius=3.2;mesh.castShadow=true;mesh.receiveShadow=true;
@@ -370,6 +399,12 @@ function setMode(mode){
   announce(mode==='rotate'?'Drag to turn.':'Ready for a little squeeze.');
 }
 function updateToyUI(){
+  const pearl=selectedToy.id==='pearl';
+  hemisphere.color.set(pearl?0xf5f6ff:0xfff9e9);
+  hemisphere.groundColor.set(pearl?0xc3b8c2:0xd6bd8a);
+  hemisphere.intensity=pearl?.45:1;
+  key.color.set(pearl?0xffffff:0xfff9ed);key.intensity=pearl?1.25:3;
+  fill.intensity=pearl?.45:.7;
   for(const id of Object.keys(toys))$('toy-'+id).setAttribute('aria-pressed',String(id===selectedToy.id));
   document.body.dataset.toy=selectedToy.id;
   $('squeeze').setAttribute('aria-label',`Squeeze the ${selectedToy.name.toLowerCase()}`);
