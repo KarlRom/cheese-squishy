@@ -1,0 +1,33 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Squishy audio checks</title><style>body{font:16px system-ui;max-width:660px;margin:40px auto;padding:24px;background:#fff;color:#333}button{padding:14px}pre{white-space:pre-wrap;line-height:1.8}</style><h1>Squishy audio checks</h1><p>Press the button to run real Web Audio signal checks. Short squishy sounds will play. Keep this tab active during the check.</p><button id="run">Run audio checks</button><pre id="result" role="status">Ready.</pre><p><a href="../">Return to the squishy</a></p><script type="module">
+import { SquishySound } from '../sound.js';
+const button=document.querySelector('#run'), result=document.querySelector('#result');
+button.addEventListener('click',async()=>{
+ button.disabled=true;result.textContent='Checking…';
+ const sound=new SquishySound();
+ const lines=[];
+ const check=(condition,label)=>{if(!condition)throw new Error(label);lines.push('PASS: '+label);result.textContent=lines.join('\n');};
+ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+ try{
+  await sound.unlock();check(sound.supported&&sound.context?.state==='running','gesture starts the audio context');
+  const analyser=sound.context.createAnalyser();analyser.fftSize=2048;sound.master.connect(analyser);
+  const data=new Float32Array(analyser.fftSize);
+  const rms=()=>{analyser.getFloatTimeDomainData(data);return Math.sqrt(data.reduce((sum,v)=>sum+v*v,0)/data.length);};
+  sound.update(1/60,.6);await wait(160);
+  const pressing=rms();check(pressing>.0001,`press produces audio (RMS ${pressing.toFixed(5)})`);
+  sound.update(1/60,.6);await wait(300);
+  const still=rms();
+  sound.drag(650);sound.update(1/60,.6);await wait(160);
+  const dragging=rms();check(dragging>still*2,'dragging strengthens the live texture');
+  sound.setPreferences(false,.38);await wait(330);
+  check(rms()<.00001,'mute silences the actual output');
+  sound.setPreferences(true,.38);sound.drag(650);sound.update(1/60,.6,.4);await wait(160);
+  check(rms()>.0001,'unmute and pinch restore output');
+  sound.update(1/60,0);await wait(600);
+  check(rms()<.00001,'release fades back to silence');
+  sound.suspend();await wait(100);
+  check(sound.context.state==='suspended','suspending pauses the audio context');
+  result.textContent=lines.join('\n')+'\nAll audio checks passed.';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL: '+error.message;}
+ finally{sound.suspend();await sound.context?.close();button.disabled=false;}
+});
+</script></html>

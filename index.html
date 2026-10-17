@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="A small, tactile cheese squishy. Press, drag, and pinch. Take your time.">
+  <title>Cheese, please. — A slow-rise squishy</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a class="wordmark" href="./" aria-label="Cheese, please. Home"><span class="brand-dot" aria-hidden="true"></span> cheese, please.</a>
+      <button class="settings-toggle" id="settings-toggle" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="white"/><circle cx="15" cy="17" r="3" fill="white"/></svg> The feel</button>
+    </header>
+    <main>
+      <div class="intro"><p class="eyebrow">A SLOW-RISE LITTLE ESCAPE</p><h1>A little squeeze.<br>A softer moment.</h1><p class="subtitle">No rush. No bounce. Just cheese.</p></div>
+      <div class="stage" id="stage">
+        <canvas id="squishy" tabindex="0" role="img" aria-label="Interactive 3D yellow cheese cube. Drag the white space to rotate, or choose Rotate 3D. Press and drag to dent it, or pinch with two fingers. When focused, hold Space to squeeze, use arrow keys to move the press, and press R to reset." aria-describedby="gesture-help"></canvas>
+        <div class="loading" id="loading">Making something soft…</div>
+        <div class="error" id="error" hidden><strong>The cheese needs WebGL 2.</strong><p>Try a recent Safari, Chrome, Firefox, or Edge with hardware acceleration enabled, then reload.</p></div>
+        <span class="stage-note" aria-hidden="true"><span></span> slow-rise · extra soft</span>
+      </div>
+      <div class="interaction">
+        <div class="mode-control" role="group" aria-label="Interact with the cheese"><button id="mode-squish" aria-pressed="true">Squish</button><button id="mode-rotate" aria-pressed="false">Rotate 3D <span aria-hidden="true">↻</span></button></div>
+        <div class="view-buttons" id="view-buttons" role="group" aria-label="Rotate the view without dragging" hidden><button id="view-left" aria-label="Rotate left">←</button><button id="view-right" aria-label="Rotate right">→</button><button id="view-up" aria-label="View from above">↑</button><button id="view-down" aria-label="View from below">↓</button><button id="view-home">Reset view</button></div>
+        <p id="gesture-help">Press & hold <span>·</span> Drag to stretch <span>·</span> Pinch to squeeze</p>
+        <div class="actions"><button id="squeeze" class="primary"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m8 4 4 4-4 4M16 12l-4 4 4 4M3 8h9M12 16h9"/></svg> Give it a squeeze</button><button id="reset" class="reset" title="Restore the cube (R)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"/></svg> Reset</button></div>
+        <p class="status" id="status" role="status" aria-live="polite">A small pause, just for you.</p>
+      </div>
+      <aside class="settings" id="settings" aria-label="Squishy feel settings" hidden>
+        <div class="settings-heading"><span>Make it your kind of soft.</span><button id="close-settings" aria-label="Close feel settings">×</button></div>
+        <label for="resistance">Squish resistance <output id="resistance-value" for="resistance">Soft</output></label>
+        <input id="resistance" type="range" min="0" max="100" value="32" aria-describedby="resistance-hint">
+        <div class="range-hints" id="resistance-hint"><span>Melty</span><span>Firm</span></div>
+        <label for="recovery">Recovery speed <output id="recovery-value" for="recovery">Very slow</output></label>
+        <input id="recovery" type="range" min="0" max="100" value="25" aria-describedby="recovery-hint">
+        <div class="range-hints" id="recovery-hint"><span>Almost still</span><span>Slow rise</span></div>
+        <div class="sound-row"><label for="sound-enabled">Squishy sounds</label><input id="sound-enabled" type="checkbox" role="switch" checked></div>
+        <label for="volume">Volume <output id="volume-value" for="volume">38%</output></label>
+        <input id="volume" type="range" min="0" max="100" value="38" aria-describedby="sound-hint">
+        <p id="sound-hint">Soft squelches follow your touch. Sound starts with your first squeeze.</p>
+      </aside>
+    </main>
+    <footer>Made for doing a little less.<span>100% digital. Still oddly satisfying.</span></footer>
+  </div>
+  <noscript><p class="noscript">Enable JavaScript to interact with the cheese.</p></noscript>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

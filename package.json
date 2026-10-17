@@ -1,0 +1,11 @@
+{
+  "name": "cheese-please-squishy",
+  "version": "1.2.0",
+  "private": true,
+  "type": "module",
+  "description": "A mobile-first viscous cheese cube squishy. No build required.",
+  "scripts": {
+    "start": "python3 -m http.server 8000 --bind 0.0.0.0",
+    "test": "node --test tests/physics.test.js"
+  }
+}
