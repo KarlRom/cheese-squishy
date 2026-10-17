@@ -29,6 +29,8 @@ Use a static server rather than double-clicking `index.html`: browsers restrict 
 - Press directly on the cube and hold. Drag the same finger to pull the material. Put two fingers on the cube and bring them together to compress it. Up to four simultaneous contact points are supported.
 - The interactive canvas disables page gestures only inside its area; outside it, normal page scrolling and browser zoom remain available.
 
+The visible interface contains only the cheese and essential controls. Instructions and status announcements remain available to screen readers; the settings panel starts closed.
+
 ## Controls and accessibility
 
 - **Rotate 3D:** switch modes, then drag with one finger or the mouse to turn the cheese through 360° horizontally and tilt to inspect the top and underside. There is no automatic spinning or inertia. Rotation changes the view around the same live 3D mesh, so your dents remain on the correct faces.
@@ -40,7 +42,7 @@ Use a static server rather than double-clicking `index.html`: browsers restrict 
 - **Pinch inward:** compresses along the two fingers' screen-space axis. Start both contacts on the cube. Moving outward releases the squeeze rather than zooming the scene.
 - **Give it a squeeze:** one tap makes a broad squeeze and releases it automatically. Useful without precise gestures.
 - **The feel:** opens a small panel with squish resistance and recovery speed. Settings persist in this browser when local storage is available.
-- **Squishy sounds:** enabled by default after your first squeeze. In **The feel**, switch sounds off or adjust volume; preferences are saved locally. Live filtered textures and gentle bubble-like squelches respond to pressure changes, dragging speed, pinch motion, and release. Stationary holding becomes quieter; recovery does not make continuous noise. Keyboard and tap squeezing also produce sound.
+- **Sound:** enabled by default after your first squeeze. In **Settings**, switch sounds off or adjust volume; preferences are saved locally. Live filtered textures and gentle bubble-like squelches respond to pressure changes, dragging speed, pinch motion, and release. Stationary holding becomes quieter; recovery does not make continuous noise. Keyboard and tap squeezing also produce sound.
 - **Reset:** immediately restores the mesh and starting view, retaining your feel settings and selected interaction mode.
 - **Keyboard:** Tab to the canvas; hold Space or Enter to squeeze. In Squish mode, arrow keys move and briefly activate a front-face press; in Rotate mode they turn the view. R resets when the canvas is focused. Tab to the separate squeeze/reset buttons for ordinary button operation. Escape closes settings. Sliders support standard keyboard input.
 - **Reduced motion:** the system preference removes the whole-cube squeeze animation; direct local deformation remains available. There are no idle motions or automatic camera movements.
@@ -71,7 +73,7 @@ GitHub Pages provides the public deployment URL in the repository’s **Settings
 
 `sound.js` synthesizes audio locally using the Web Audio API: damp filtered noise, two moving wet resonances, and short granular peel sounds. Pressing makes a low viscous squelch; dragging adds irregular tacky texture; releasing pulls apart a few short sticky strands. There are no pitched bubble oscillators. These are designed squishy effects, not recordings of a physical toy. The graph starts/resumes inside a deliberate user gesture, following [Web Audio autoplay guidance](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Best_practices#autoplay_policy). A smoothed master volume and compressor control transients. Audio pauses when the tab is hidden or the window loses focus and resumes with the next manipulation.
 
-If you cannot hear it, check **The feel → Squishy sounds**, its volume slider, device/media volume, and the browser's site-mute setting, then tap **Give it a squeeze**. Device/browser audio policies can vary. The visual squishy still works without Web Audio support.
+If you cannot hear it, check **Settings → Sound**, its volume slider, device/media volume, and the browser's site-mute setting, then tap **Squeeze**. Device/browser audio policies can vary. The visual squishy still works without Web Audio support.
 
 ## Performance and checks
 

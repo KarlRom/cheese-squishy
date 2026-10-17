@@ -5,7 +5,8 @@ const sound = new SquishySound();
 async function unlockSound() {
   await sound.unlock();
   if (!sound.supported) {
-    $('sound-hint').textContent = 'Sound is unavailable in this browser. You can still squish.';
+    $('sound-hint').textContent = 'Sound unavailable in this browser.';
+    $('sound-hint').classList.remove('sr-only');
     $('sound-enabled').disabled = true; $('volume').disabled = true;
   }
 }
@@ -152,7 +153,7 @@ function resize() {
   renderer.setSize(width,height,false);
   camera.aspect=width/height;
   // Keep the cube fully framed on the narrowest phones.
-  camera.fov=width<500 ? 36 : 34;
+  camera.fov=2*Math.atan(Math.tan(34*Math.PI/360)*Math.max(1,.88/camera.aspect))*180/Math.PI;
   camera.updateProjectionMatrix(); needsRender=true;
 }
 new ResizeObserver(resize).observe(stage); resize();
@@ -282,6 +283,7 @@ function setMode(mode){
   $('mode-squish').setAttribute('aria-pressed',String(mode==='squish'));
   $('mode-rotate').setAttribute('aria-pressed',String(mode==='rotate'));
   $('view-buttons').hidden=mode!=='rotate';
+  stage.classList.toggle('rotating',mode==='rotate');
   $('gesture-help').textContent=mode==='rotate'?'Drag to turn · Use arrows to explore every side':'Press & hold · Drag to stretch · Pinch to squeeze';
   canvas.setAttribute('aria-label',mode==='rotate'?'Rotatable 3D cheese cube. Drag or use arrow keys to turn it. Switch to Squish to press the visible faces.':'Interactive 3D cheese cube. Press and drag to dent it, or pinch with two fingers. Hold Space to squeeze, use arrow keys to move the press, and R to reset. Drag the white space to turn the view.');
   announce(mode==='rotate'?'Drag to turn the cheese.':'Ready for a little squeeze.');
