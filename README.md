@@ -62,12 +62,12 @@ GitHub Pages provides the public deployment URL in the repository’s **Settings
 
 ## How the squishy works
 
-- Six dense surface grids are welded into one indexed, seamless mesh before rounding. Mobile uses 56 subdivisions per edge (18,818 unique vertices); larger viewports use 68 (27,746 unique vertices).
-- Pores are geometric recesses, not flat decals. Recess colors add a restrained ambient-occlusion cue. Their walls, surface shading, and the rest of the mesh all deform together.
+- Six dense surface grids are welded into one indexed, seamless mesh before rounding. Mobile uses 64 subdivisions per edge (24,578 unique vertices); larger viewports use 80 (38,402 unique vertices).
+- Pores are geometric recesses, not flat decals. All faces mix rotated ovals, deep pockets, shallow bowls and tiny dimples, with subtly irregular outlines and smoothly rolled mouths. Recess colors add a restrained ambient-occlusion cue. Their walls, surface shading, and the rest of the mesh all deform together.
 - Ray casting finds the touched triangle; barycentric coordinates map that point back to the original material. Each contact applies a Gaussian indentation, tangential pull, and a soft displaced rim. Two fingers also apply broad axial compression with transverse bulging.
 - `physics.js` stores a displacement field at every vertex. Loading approaches a bounded deformation; unloading uses a first-order exponential relaxation without a velocity state or spring. There is no elastic overshoot or bounce. Default relaxation time is about 53 seconds: about 160 seconds for 95% recovery. The slider covers 6–90 second time constants, or about 18–270 seconds for 95% recovery.
 - This is an intentionally controlled viscoelastic surface approximation, not a calibrated volumetric material simulation. Displacement limits keep intense gestures stable; extreme gestures may still look stylized. It cannot reproduce physical touch feedback through a screen.
-- Smooth vertex normals update with deformation. Perspective, studio lighting, real-time self-shadowing, soft material highlights, cavity shading, subtle surface irregularity, and a feathered contact shadow create the tactile appearance against pure white.
+- Smooth vertex normals update with deformation. Perspective, studio lighting, real-time self-shadowing, soft material highlights, cavity shading, smooth satin surface highlights, and a feathered contact shadow create the tactile appearance against pure white.
 
 ## Sound
 

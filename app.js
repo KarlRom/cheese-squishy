@@ -79,20 +79,31 @@ function makeCheese(segments) {
     remap.push(map.get(hash));
   }
   const index = Array.from(box.index.array, i => remap[i]); box.dispose();
-  // [face axis, face sign, u, v, radius, depth]. Cavities are actual geometry.
+  // Sculpted oval cavities: axis, sign, center u/v, radii u/v, depth, rotation.
+  // Each face mixes deep pockets, broad shallow bowls and small pinholes.
   const pores = [
-    [2,1,-.51,.46,.245,.18],[2,1,.34,.56,.17,.14],[2,1,.04,-.04,.27,.22],
-    [2,1,-.56,-.42,.18,.14],[2,1,.52,-.52,.24,.19],[2,1,.66,.08,.10,.08],
-    [0,1,-.46,.48,.23,.20],[0,1,.36,.19,.29,.23],[0,1,-.36,-.41,.25,.19],
-    [0,1,.49,-.56,.13,.11],[0,1,.61,.65,.11,.08],
-    [1,1,-.47,.35,.24,.19],[1,1,.31,.4,.17,.14],[1,1,.1,-.28,.28,.22],
-    [1,1,-.58,-.48,.13,.10],[1,1,.61,-.54,.13,.10],
-    [0,-1,.1,.2,.26,.20],[0,-1,-.4,-.5,.19,.16],
-    [2,-1,-.3,.4,.23,.18],[2,-1,.4,-.3,.28,.21],
-    [1,-1,-.3,.3,.2,.15],[1,-1,.4,-.4,.24,.19],[1,-1,-.48,-.4,.17,.13],[1,-1,.44,.44,.17,.13],
-    [0,-1,.52,.48,.17,.15],[0,-1,-.47,.5,.20,.17],[0,-1,.5,-.45,.20,.16],
-    [2,-1,.43,.48,.17,.15],[2,-1,-.43,-.44,.22,.18],[2,-1,.06,.04,.17,.16]
-  ];
+    [2,1,-.47,.43,.265,.205,.205,.24], [2,1,.40,.55,.105,.145,.105,-.4],
+    [2,1,.10,.01,.225,.285,.245,-.3], [2,1,-.55,-.35,.125,.185,.13,.5],
+    [2,1,.46,-.49,.245,.145,.17,.35], [2,1,.64,.10,.065,.08,.075,-.2],
+    [2,1,-.17,-.60,.055,.07,.042,.2], [2,1,-.16,.64,.06,.045,.035,.4],
+    [0,1,-.45,.45,.195,.26,.23,-.32], [0,1,.34,.13,.285,.165,.18,.42],
+    [0,1,-.31,-.39,.235,.20,.19,-.65], [0,1,.48,-.56,.095,.07,.07,.2],
+    [0,1,.57,.58,.075,.115,.10,-.2], [0,1,-.65,-.03,.06,.075,.04,.3],
+    [0,1,.07,.64,.065,.05,.045,.4],
+    [1,1,-.45,.34,.275,.205,.18,-.3], [1,1,.36,.43,.105,.145,.13,.55],
+    [1,1,.06,-.26,.24,.275,.25,.3], [1,1,-.57,-.48,.075,.11,.065,-.4],
+    [1,1,.59,-.49,.105,.075,.085,.35], [1,1,.62,.02,.055,.065,.035,-.2],
+    [1,1,-.08,.64,.07,.055,.045,.15],
+    [0,-1,.07,.18,.265,.21,.22,.45], [0,-1,-.44,-.47,.145,.19,.15,-.3],
+    [0,-1,.50,.51,.105,.16,.14,.3], [0,-1,-.48,.52,.18,.12,.10,.2],
+    [0,-1,.48,-.43,.19,.14,.17,-.35], [0,-1,-.62,.04,.055,.075,.04,.2],
+    [2,-1,-.34,.42,.225,.16,.17,-.5], [2,-1,.40,-.27,.25,.29,.25,.3],
+    [2,-1,.43,.51,.095,.14,.11,-.3], [2,-1,-.45,-.44,.19,.135,.14,.4],
+    [2,-1,-.04,.02,.08,.065,.045,-.2], [2,-1,-.01,-.65,.055,.065,.06,.1],
+    [1,-1,-.32,.34,.205,.265,.20,-.2], [1,-1,.41,-.42,.255,.17,.20,.45],
+    [1,-1,-.48,-.43,.12,.085,.08,.1], [1,-1,.43,.44,.14,.095,.13,-.4],
+    [1,-1,.02,-.08,.07,.05,.04,.2]
+  ].map((pore,index)=>({values:pore,phase:index*2.399963,irregularity:.025+(index%3)*.012}));
   const colors = [], p = new THREE.Vector3(), core = new THREE.Vector3();
   const yellow = new THREE.Color('#eab019');
   for (let i = 0; i < vertices.length; i += 3) {
@@ -100,24 +111,27 @@ function makeCheese(segments) {
     core.set(THREE.MathUtils.clamp(p.x,-.79,.79),THREE.MathUtils.clamp(p.y,-.79,.79),THREE.MathUtils.clamp(p.z,-.79,.79));
     p.sub(core).normalize().multiplyScalar(.21).add(core);
     let cavity = 0;
-    for (const [axis, sign, u, v, radius, depth] of pores) {
-      if (vertices[i + axis] * sign < .98) continue;
-      const axes = axis === 0 ? [2,1] : axis === 1 ? [0,2] : [0,1];
-      const du = vertices[i + axes[0]] - u, dv = vertices[i + axes[1]] - v;
-      const r = Math.sqrt(du * du + dv * dv) / radius;
-      if (r < 1) {
-        // A smooth cavity floor, steep inner wall and softly rolled rim.
-        const bowl = (1 - r * r) ** 1.18;
-        p.setComponent(axis, p.getComponent(axis) - sign * depth * bowl);
-        cavity = Math.max(cavity, bowl);
+    for (const {values,phase,irregularity} of pores) {
+      const [axis,sign,u,v,ru,rv,depth,angle]=values;
+      if (vertices[i+axis]*sign < .98) continue;
+      const axes=axis===0?[2,1]:axis===1?[0,2]:[0,1];
+      const du=vertices[i+axes[0]]-u,dv=vertices[i+axes[1]]-v;
+      const cu=Math.cos(angle),su=Math.sin(angle);
+      const x=(du*cu+dv*su)/ru,y=(-du*su+dv*cu)/rv;
+      const theta=Math.atan2(y,x);
+      const edge=1+irregularity*Math.sin(theta*3+phase)+.016*Math.cos(theta*2-phase);
+      const r2=(x*x+y*y)/(edge*edge);
+      if(r2<1){
+        const t=1-r2;
+        // Zero slope at the mouth and floor; no hard lip or grain across the skin.
+        const bowl=t*t*(3-2*t);
+        p.setComponent(axis,p.getComponent(axis)-sign*depth*bowl);
+        cavity=Math.max(cavity,bowl);
       }
     }
-    // Subtle handmade unevenness; zero at seams is unnecessary after welding.
-    const grain = Math.sin(p.x * 33 + p.z * 19) * Math.sin(p.y * 29 - p.x * 11) * .0032;
-    p.addScaledVector(p.clone().normalize(), grain);
     p.toArray(vertices, i);
-    const ao = 1 - cavity * .44;
-    const variation = .985 + .015 * Math.sin(p.x * 9 + p.y * 6 + p.z * 4);
+    const ao = 1 - cavity * .29;
+    const variation = .994 + .006 * Math.sin(p.x * 3 + p.y * 2 + p.z * 2);
     colors.push(yellow.r * ao * variation, yellow.g * ao * variation, yellow.b * ao * variation);
   }
   const geometry = new THREE.BufferGeometry();
@@ -127,8 +141,8 @@ function makeCheese(segments) {
   geometry.computeBoundingSphere();
   return geometry;
 }
-const geometry = makeCheese(matchMedia('(max-width: 600px)').matches ? 56 : 68);
-const material = new THREE.MeshPhysicalMaterial({ color: 0xffffff, vertexColors: true, roughness: .37, metalness: 0, clearcoat: .23, clearcoatRoughness: .40, envMapIntensity: .65 });
+const geometry = makeCheese(matchMedia('(max-width: 600px)').matches ? 64 : 80);
+const material = new THREE.MeshPhysicalMaterial({ color: 0xffffff, vertexColors: true, roughness: .28, metalness: 0, clearcoat: .30, clearcoatRoughness: .30, envMapIntensity: .65 });
 const mesh = new THREE.Mesh(geometry, material);
 // A generous static bound covers every valid drag without per-frame bounds scans.
 geometry.boundingSphere.radius = 3.2;
