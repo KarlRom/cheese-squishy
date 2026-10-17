@@ -3,7 +3,7 @@ export class SquishySound {
   constructor() {
     this.enabled=true; this.volume=.38; this.context=null; this.supported=true;
     this.previousLoad=0; this.previousPinch=0; this.lastBubble=-1; this.motion=0;
-    this.grains=new Set();
+    this.grains=new Set();this.touchGeneration=0;
   }
   async unlock() {
     if(!this.enabled||!this.supported)return;
@@ -86,6 +86,33 @@ export class SquishySound {
       source.start(start,Math.random()*2);source.stop(start+duration+.025);
     }
   }
+  // Direct contact foley is independent of animation frames, so a fast tap is audible.
+  async touch(phase='press',strength=.7){
+    const generation=this.touchGeneration;
+    await this.unlock();
+    const c=this.context;
+    if(generation!==this.touchGeneration||!this.enabled||!this.supported||!this.buffer||!c||c.state!=='running')return;
+    const release=phase==='release';
+    const count=release?3:1;
+    const level=Math.min(1,Math.max(.2,strength));
+    for(let i=0;i<count&&this.grains.size<14;i++){
+      const start=c.currentTime+i*.038;
+      const duration=release?.095+Math.random()*.025:.115;
+      const source=c.createBufferSource();source.buffer=this.buffer;
+      source.playbackRate.value=release?1.0+Math.random()*.35:.85;
+      const high=c.createBiquadFilter();high.type='highpass';high.frequency.value=release?320:180;
+      const rubber=c.createBiquadFilter();rubber.type='lowpass';rubber.Q.value=release?2.8:2.0;
+      rubber.frequency.setValueAtTime(release?2300:1500,start);
+      rubber.frequency.exponentialRampToValueAtTime(release?650:280,start+duration);
+      const gain=c.createGain();gain.gain.setValueAtTime(0,start);
+      gain.gain.linearRampToValueAtTime(level*(release?.40:.65)/(1+i*.6),start+.003);
+      gain.gain.exponentialRampToValueAtTime(.0001,start+duration);
+      source.connect(high).connect(rubber).connect(gain).connect(this.compressor);
+      const grain={source,gain};this.grains.add(grain);
+      source.onended=()=>{source.disconnect();high.disconnect();rubber.disconnect();gain.disconnect();this.grains.delete(grain);};
+      source.start(start,Math.random()*2);source.stop(start+duration+.02);
+    }
+  }
   update(dt,load,pinch=0){
     const delta=(load-this.previousLoad)/Math.max(dt,.008);
     const pinchChange=Math.abs(pinch-this.previousPinch)/Math.max(dt,.008);
@@ -108,6 +135,7 @@ export class SquishySound {
     else if(movement>.2&&now-this.lastBubble>.12+Math.random()*.12)this.bubble(.4+movement*.5,this.motion>.25);
   }
   silence(){
+    this.touchGeneration++;
     this.previousLoad=0;this.previousPinch=0;this.motion=0;
     if(!this.context||!this.body)return;
     const now=this.context.currentTime;

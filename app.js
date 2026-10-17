@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 import { SquishyMaterial } from './physics.js';
 import { makeSqueeze } from './squeezes.js';
-import { SquishySound } from './sound.js?v=1.3.0';
+import { SquishySound } from './sound.js?v=1.7.0';
 const sound = new SquishySound();
 async function unlockSound() {
   await sound.unlock();
@@ -195,6 +195,7 @@ function beginContact(event) {
     announce('Turn it over. Find a new soft spot.'); return;
   }
   void unlockSound();
+  void sound.touch('press',.55+Math.max(0,event.pressure||.5)*.3);
   event.preventDefault(); canvas.focus({ preventScroll: true });
   canvas.setPointerCapture(event.pointerId);
   const bary = THREE.Triangle.getBarycoord(hit.point,
@@ -245,7 +246,9 @@ function endContact(event) {
     if(canvas.hasPointerCapture(event.pointerId))canvas.releasePointerCapture(event.pointerId);
     return;
   }
+  const releasedContact=contacts.get(event.pointerId);
   if (!contacts.delete(event.pointerId)) return;
+  if(event.type==='pointerup')void sound.touch('release',Math.min(.95,.55+(performance.now()-releasedContact.started)/2500));
   if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
   updatePinch(true);
   if (!contacts.size) announce('Letting go, very slowly.');
@@ -257,7 +260,7 @@ canvas.addEventListener('pointermove',moveContact);
 for (const type of ['pointerup','pointercancel','lostpointercapture']) canvas.addEventListener(type,endContact);
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 function squeeze() {
-  void unlockSound();
+  void unlockSound(); void sound.touch('press',.75);
   // Anchor local presses to the face nearest the current camera angle.
   const viewNormal=camera.position.clone().normalize();
   const axis=[Math.abs(viewNormal.x),Math.abs(viewNormal.y),Math.abs(viewNormal.z)];
@@ -283,7 +286,7 @@ function reset() {
 }
 $('reset').addEventListener('click',reset);
 canvas.addEventListener('keydown',event=>{
-  if (event.code==='Space'||event.key==='Enter') { event.preventDefault(); if (!event.repeat) { void unlockSound(); heldKey=true; announce('A good, slow squeeze.'); } }
+  if (event.code==='Space'||event.key==='Enter') { event.preventDefault(); if (!event.repeat) { void unlockSound(); void sound.touch('press',.7); heldKey=true; announce('A good, slow squeeze.'); } }
   if (event.key.toLowerCase()==='r') { event.preventDefault(); reset(); }
   if (event.key.startsWith('Arrow')) {
     event.preventDefault();
@@ -301,7 +304,7 @@ canvas.addEventListener('keydown',event=>{
     squeezeUntil=performance.now()+700;
   }
 });
-canvas.addEventListener('keyup',event=>{ if (event.code==='Space'||event.key==='Enter') {event.preventDefault();heldKey=false;} });
+canvas.addEventListener('keyup',event=>{ if (event.code==='Space'||event.key==='Enter') {event.preventDefault();if(heldKey)void sound.touch('release',.7);heldKey=false;} });
 canvas.addEventListener('blur',()=>{heldKey=false;});
 function clearGestures(){
   const ids=[...contacts.keys()];if(orbitPointer)ids.push(orbitPointer.id);
