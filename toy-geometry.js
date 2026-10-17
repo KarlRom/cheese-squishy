@@ -16,10 +16,13 @@ export function makePearl(segments) {
         z*Math.sqrt(1-x*x/2-y*y/2+x*x*y*y/3));
       const skin=1+.007*Math.sin(p.x*3+p.z*2)*Math.sin(p.y*4);
       vertices.push(p.x*1.32*skin,p.y*1.04*skin+.025,p.z*1.25*skin);
-      // Very low-contrast nacre clouds under the glossy skin, never glitter.
-      const cloud=.5+.5*Math.sin(p.x*3.1+p.z*2.0)*Math.cos(p.y*2.8-p.z);
-      const warmth=.5+.5*Math.sin(p.y*3.0-p.x*1.8);
-      const tint=new THREE.Color().setRGB(.94+.055*warmth,.925+.06*cloud,.95+.045*(1-warmth));
+      // Broad blush and ivory nacre clouds sit underneath the clearcoat.
+      const cloud=.5+.5*Math.sin(p.x*2.6+p.z*1.7)*Math.cos(p.y*2.4-p.z);
+      const warmth=.5+.5*Math.sin(p.y*2.6-p.x*1.8);
+      const blush=THREE.MathUtils.smoothstep(cloud*.72+warmth*.28,.18,.82);
+      const ivory=new THREE.Color().setRGB(.995,.90,.76);
+      const pink=new THREE.Color().setRGB(.97,.66,.79);
+      const tint=ivory.lerp(pink,blush).multiplyScalar(.97+.03*warmth);
       colors.push(tint.r,tint.g,tint.b);
     }
     remap.push(welded.get(hash));

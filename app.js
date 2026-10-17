@@ -1,4 +1,4 @@
-import { makePearl } from './toy-geometry.js?v=2.3.0';
+import { makePearl } from './toy-geometry.js?v=2.4.0';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
 import { SquishyMaterial } from './physics.js';
@@ -96,7 +96,7 @@ function makePearlEnvironment(){
     panel.position.set(...position);panel.lookAt(0,0,0);room.add(panel);
   }
   card(5.5,3.6,[-3,4.6,4.2],5.0); // Broad creamy upper-left reflection.
-  card(1.2,5.0,[4.2,1.3,3.0],3.0,0xf4f2ff); // Narrow silver ribbon.
+  card(1.2,5.0,[4.2,1.3,3.0],3.0,0xfff0f5); // Narrow silver ribbon.
   card(4.5,2.2,[-1.0,2.0,-4.0],2.4,0xfff2e9);
   card(6.5,4.0,[0,-4.0,2.0],.12,0x85828b,false); // Contour below the milky body.
   const generator=new THREE.PMREMGenerator(renderer);
@@ -184,11 +184,11 @@ function createToy(id){
   const geometry=pearl?makePearl(64):makeCheese(matchMedia('(max-width: 600px)').matches?64:80);
   if(pearl&&!pearlEnvironment)pearlEnvironment=makePearlEnvironment();
   const material=new THREE.MeshPhysicalMaterial(pearl?{
-    color:0xfff6ef,vertexColors:true,roughness:.23,metalness:.08,
+    color:0xfffaf5,vertexColors:true,roughness:.23,metalness:.08,
     clearcoat:1,clearcoatRoughness:.065,ior:1.58,specularIntensity:1.15,
     iridescence:.65,iridescenceIOR:1.36,iridescenceThicknessRange:[300,390],
-    sheen:.10,sheenColor:0xffe5f2,sheenRoughness:.45,
-    transmission:.22,thickness:1.1,attenuationColor:0xf7e5df,attenuationDistance:3.2,
+    sheen:.18,sheenColor:0xffdbe9,sheenRoughness:.45,
+    transmission:.22,thickness:1.1,attenuationColor:0xf9d5d9,attenuationDistance:2.8,
     envMap:pearl?pearlEnvironment.texture:null,envMapIntensity:1.35
   }:{color:0xffffff,vertexColors:true,roughness:.28,metalness:0,clearcoat:.30,clearcoatRoughness:.30,envMapIntensity:.65});
   const mesh=new THREE.Mesh(geometry,material);
