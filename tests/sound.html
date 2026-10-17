@@ -1,5 +1,5 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Squishy audio checks</title><style>body{font:16px system-ui;max-width:660px;margin:40px auto;padding:24px;background:#fff;color:#333}button{padding:14px}pre{white-space:pre-wrap;line-height:1.8}</style><h1>Squishy audio checks</h1><p>Press the button to run real Web Audio signal checks. Short squishy sounds will play. Keep this tab active during the check.</p><button id="run">Run audio checks</button><pre id="result" role="status">Ready.</pre><p><a href="../">Return to the squishy</a></p><script type="module">
-import { SquishySound } from '../sound.js?v=1.9.0';
+import { SquishySound } from '../sound.js?v=2.0.0';
 const button=document.querySelector('#run'), result=document.querySelector('#result');
 button.addEventListener('click',async()=>{
  button.disabled=true;result.textContent='Checking…';
@@ -19,18 +19,17 @@ button.addEventListener('click',async()=>{
   await sound.touch('release',.8);
   check(await peakOutput()>.0001,'lifting off creates a separate adhesive peel');
   await wait(350);
-  sound.nextTexture=0;sound.update(1/60,.6);
+  sound.update(1/60,.6);
   const pressing=await peakOutput();check(pressing>.0001,`press produces audio (RMS ${pressing.toFixed(5)})`);
-  sound.update(1/60,.6);await wait(300);
-  const still=rms();
-  sound.drag(650);sound.update(1/60,.6);
-  const dragging=await peakOutput();check(dragging>still*2,'dragging strengthens the live texture');
+  await wait(200);
+  for(let i=0;i<40;i++){sound.drag(650);sound.update(1/60,.3+(i%5)*.12,.4);}
+  check(await peakOutput()<.00001,'holding, compression and dragging stay silent between contact events');
   sound.setPreferences(false,.38);await wait(330);
   check(rms()<.00001,'mute silences the actual output');
   await sound.touch('press',.8);await wait(90);
   check(rms()<.00001,'direct contact sounds respect mute');
-  sound.setPreferences(true,.38);sound.drag(650);sound.update(1/60,.6,.4);
-  check(await peakOutput()>.0001,'unmute and pinch restore output');
+  sound.setPreferences(true,.38);await sound.touch('press',.8);
+  check(await peakOutput()>.0001,'unmute restores soft contact audio');
   sound.update(1/60,0);await wait(600);
   check(rms()<.00001,'release fades back to silence');
   sound.bubble(.8,true);sound.silence();await wait(250);

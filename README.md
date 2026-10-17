@@ -43,7 +43,7 @@ The visible interface contains only the cheese and essential controls. Instructi
 - **Pinch inward:** compresses along the two fingers' screen-space axis. Start both contacts on the cube. Moving outward releases the squeeze rather than zooming the scene.
 - **Give it a squeeze:** each tap cycles through six different gestures: side squeeze, palm squash, thumb press, corner fold, front-to-back pinch, and diagonal squeeze. Each ramps in smoothly and releases automatically. Local presses follow the visible face; existing dents recover slowly while the next gesture takes shape. Reset clears deformation without restarting the gesture cycle. Useful without precise gestures.
 - **The feel:** opens a small panel with squish resistance and recovery speed. Settings persist in this browser when local storage is available.
-- **Sound:** enabled by default after your first squeeze. In **Settings**, switch sounds off or adjust volume; preferences are saved locally. Live filtered textures and gentle bubble-like squelches respond to pressure changes, dragging speed, pinch motion, and release. Stationary holding becomes quieter; recovery does not make continuous noise. Keyboard and tap squeezing also produce sound.
+- **Sound:** enabled by default after your first squeeze. In **Settings**, switch sounds off or adjust volume; preferences are saved locally. Short, quiet sticky sounds mark contact, pressing and lift-off; movement and deformation stay silent. Holding and recovery stay silent. Keyboard and tap squeezing also produce sound.
 - **Reset:** immediately restores the mesh and starting view, retaining your feel settings and selected interaction mode.
 - **Keyboard:** Tab to the canvas; hold Space or Enter to squeeze. In Squish mode, arrow keys move and briefly activate a front-face press; in Rotate mode they turn the view. R resets when the canvas is focused. Tab to the separate squeeze/reset buttons for ordinary button operation. Escape closes settings. Sliders support standard keyboard input.
 - **Reduced motion:** the system preference removes the whole-cube squeeze animation; direct local deformation remains available. There are no idle motions or automatic camera movements.
@@ -72,9 +72,11 @@ GitHub Pages provides the public deployment URL in the repository’s **Settings
 
 ## Sound
 
-`sound.js` plays twelve short excerpts of [“Slime” by qubodup](https://freesound.org/people/qubodup/sounds/127449/), a CC0 recording of real sticky slime. The audio is included locally in `assets/sounds/`; there are no third-party audio requests at runtime. See `assets/sounds/CREDITS.md` for source, license and edit details. The app preloads the small WAV and creates/resumes audio after a user gesture.
+`sound.js` uses short excerpts of [“Slime” by qubodup](https://freesound.org/people/qubodup/sounds/127449/), a CC0 recording of real sticky slime. The audio is included locally in `assets/sounds/`; there are no third-party audio requests at runtime. See `assets/sounds/CREDITS.md` for source, license and edit details. The app preloads the small WAV and creates/resumes audio after a user gesture.
 
-Different recorded takes provide natural variation for contact, pressing, dragging and lift-off. Playback speed varies only ±2%; there are no oscillators, resonant pitch sweeps, synthetic crackles or continuous noise loops. Soft edge fades and gentle compression control transitions. A held, motionless press becomes quiet. This is recorded slime foley, not a recording of the pictured cheese toy. Audio pauses when hidden and resumes with the next manipulation.
+The audio focuses on short, quiet sticky contact and lift-off sounds. Excerpts are trimmed to about 140 ms for a press and 180 ms for release, at a lower level than the earlier mushy effects. Compression, sliding, holding and recovery do not produce repeated squelches or a background sound. The Squeeze button and keyboard actions get one soft press and one lift-off; direct touch events are deduplicated against animation transitions.
+
+Playback speed varies only ±2%; there are no oscillators, pitch sweeps or noise loops. Soft fades and gentle compression control transitions. This is recorded slime foley trimmed to suggest sticky rubber contact, not a recording of the pictured cheese toy. Audio pauses when hidden and resumes with the next manipulation.
 
 If you cannot hear it, check **Settings → Sound**, its volume slider, device/media volume, and the browser's site-mute setting, then tap **Squeeze**. Device/browser audio policies can vary. The visual squishy still works without Web Audio support.
 
@@ -82,7 +84,7 @@ If you cannot hear it, check **Settings → Sound**, its volume slider, device/m
 
 The app targets display refresh with `requestAnimationFrame`, caps pixel ratio at 1.8, uses fewer vertices on small screens, skips mesh/render work when settled, and suspends animation when hidden. Rendering performance varies by phone/GPU; 60 fps is a target, not a guarantee. No real-device multi-touch or device-specific 60 fps claim is made.
 
-JavaScript syntax and fourteen numerical deformation and zoom tests were checked during development. Narrow-screen browser QA covered rendering, a held local press, automatic squeezing, reset, the settings panel, drag rotation, tap rotation controls, view reset, and pressing a face after turning the view. Eleven real browser audio signal checks also passed: gesture unlock, press output, drag response, mute, unmute/pinch, release silence, reset-tail cleanup, and suspension. The app sound switch and volume control were checked in the browser. Physical phone multi-touch and device audio behavior should be tested on your target devices.
+JavaScript syntax and fourteen numerical deformation and zoom tests were checked during development. Narrow-screen browser QA covered rendering, a held local press, automatic squeezing, reset, the settings panel, drag rotation, tap rotation controls, view reset, and pressing a face after turning the view. Eleven real browser audio signal checks also passed: gesture unlock, press output, silence during holding and dragging, mute, unmuted contact, release silence, reset-tail cleanup, and suspension. The app sound switch and volume control were checked in the browser. Physical phone multi-touch and device audio behavior should be tested on your target devices.
 
 To rerun the numerical checks with Node.js 20+:
 
@@ -90,7 +92,7 @@ To rerun the numerical checks with Node.js 20+:
 node --test tests/*.test.js
 ```
 
-For real Web Audio output checks, run the local server and visit **http://localhost:8000/tests/sound.html**, then click **Run audio checks**. It checks gesture unlock, audible signal generation, drag response, mute, unmute/pinch, release silence, reset-tail cleanup, and suspension.
+For real Web Audio output checks, run the local server and visit **http://localhost:8000/tests/sound.html**, then click **Run audio checks**. It checks gesture unlock, audible signal generation, silence during holding and dragging, mute, unmuted contact, release silence, reset-tail cleanup, and suspension.
 
 Four zoom checks verify pinch direction, frame-independent scaling, safe limits and degenerate contact spacing. Browser QA checked zoom buttons, wheel zoom and view reset; physical phone multi-touch remains unverified.
 

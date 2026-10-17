@@ -14,3 +14,6 @@ No synthetic pitch sweeps, oscillators, or resonant effects are added.
 
 This is recorded slime foley used as a tactile sound approximation, not a
 recording of the depicted cheese toy or a particular brand of petroleum jelly.
+
+Current playback keeps only the short contact transients (about 140 ms) and
+small lift-off tails (about 180 ms); the longer wet texture is not played.
