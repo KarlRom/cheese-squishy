@@ -40,7 +40,7 @@ The visible interface contains only the cheese and essential controls. Instructi
 - **Press and hold:** a localized dent deepens over roughly two seconds. Supported stylus/finger pressure adds depth; ordinary touch and mouse work without pressure hardware.
 - **Drag:** pulls the contacted patch of material. A pointer stays captured even when it leaves the cube.
 - **Pinch inward:** compresses along the two fingers' screen-space axis. Start both contacts on the cube. Moving outward releases the squeeze rather than zooming the scene.
-- **Give it a squeeze:** one tap makes a broad squeeze and releases it automatically. Useful without precise gestures.
+- **Give it a squeeze:** each tap cycles through six different gestures: side squeeze, palm squash, thumb press, corner fold, front-to-back pinch, and diagonal squeeze. Each ramps in smoothly and releases automatically. Local presses follow the visible face; existing dents recover slowly while the next gesture takes shape. Reset clears deformation without restarting the gesture cycle. Useful without precise gestures.
 - **The feel:** opens a small panel with squish resistance and recovery speed. Settings persist in this browser when local storage is available.
 - **Sound:** enabled by default after your first squeeze. In **Settings**, switch sounds off or adjust volume; preferences are saved locally. Live filtered textures and gentle bubble-like squelches respond to pressure changes, dragging speed, pinch motion, and release. Stationary holding becomes quieter; recovery does not make continuous noise. Keyboard and tap squeezing also produce sound.
 - **Reset:** immediately restores the mesh and starting view, retaining your feel settings and selected interaction mode.
@@ -79,17 +79,17 @@ If you cannot hear it, check **Settings → Sound**, its volume slider, device/m
 
 The app targets display refresh with `requestAnimationFrame`, caps pixel ratio at 1.8, uses fewer vertices on small screens, skips mesh/render work when settled, and suspends animation when hidden. Rendering performance varies by phone/GPU; 60 fps is a target, not a guarantee. No real-device multi-touch or device-specific 60 fps claim is made.
 
-JavaScript syntax and seven numerical physics tests were checked during development. Narrow-screen browser QA covered rendering, a held local press, automatic squeezing, reset, the settings panel, drag rotation, tap rotation controls, view reset, and pressing a face after turning the view. Eight real browser audio signal checks also passed: gesture unlock, press output, drag response, mute, unmute/pinch, release silence, reset-tail cleanup, and suspension. The app sound switch and volume control were checked in the browser. Physical phone multi-touch and device audio behavior should be tested on your target devices.
+JavaScript syntax and ten numerical deformation tests were checked during development. Narrow-screen browser QA covered rendering, a held local press, automatic squeezing, reset, the settings panel, drag rotation, tap rotation controls, view reset, and pressing a face after turning the view. Eight real browser audio signal checks also passed: gesture unlock, press output, drag response, mute, unmute/pinch, release silence, reset-tail cleanup, and suspension. The app sound switch and volume control were checked in the browser. Physical phone multi-touch and device audio behavior should be tested on your target devices.
 
 To rerun the numerical checks with Node.js 20+:
 
 ```sh
-node --test tests/physics.test.js
+node --test tests/*.test.js
 ```
 
 For real Web Audio output checks, run the local server and visit **http://localhost:8000/tests/sound.html**, then click **Run audio checks**. It checks gesture unlock, audible signal generation, drag response, mute, unmute/pinch, release silence, reset-tail cleanup, and suspension.
 
-The numerical tests cover localized deformation, monotonic release, resistance and recovery behavior, pinch direction, stress/floor/reset stability, and frame-rate-independent release.
+The numerical tests also verify that all six automatic squeeze profiles produce distinct stable shapes and that local presses follow alternate visible faces. They cover localized deformation, monotonic release, resistance and recovery behavior, pinch direction, stress/floor/reset stability, and frame-rate-independent release.
 
 ## Files
 
@@ -97,6 +97,7 @@ The numerical tests cover localized deformation, monotonic release, resistance a
 - `styles.css` — responsive white layout
 - `app.js` — mesh construction, rendering, ray casting, gestures, and UI
 - `physics.js` — standalone deformation solver
+- `squeezes.js` — six automatic squeeze profiles
 - `sound.js` — live gesture-driven procedural squishy audio
 - `vendor/three.module.js` — pinned Three.js 0.170.0
 - `vendor/THREE-LICENSE.txt` — Three.js MIT license

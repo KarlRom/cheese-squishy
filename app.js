@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import { SquishyMaterial } from './physics.js';
+import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=1.3.0';
 const sound = new SquishySound();
 async function unlockSound() {
@@ -174,6 +175,7 @@ new ResizeObserver(resize).observe(stage); resize();
 const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2();
 const contacts = new Map();
 let pinch = null, pinchStart = null, squeezeUntil = 0, heldKey = false, keyboardPoint = [0,.12,1];
+let buttonGesture=null, squeezeIndex=0;
 let lastStatus = '', uiClock = 0, lastTime = 0, frameHandle = 0, paused = false;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 function announce(message) { if (lastStatus !== message) { status.textContent = message; lastStatus = message; } }
@@ -254,7 +256,21 @@ canvas.addEventListener('click',()=>{void unlockSound();});
 canvas.addEventListener('pointermove',moveContact);
 for (const type of ['pointerup','pointercancel','lostpointercapture']) canvas.addEventListener(type,endContact);
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
-function squeeze() { void unlockSound(); squeezeUntil=performance.now()+1100; announce('A good, slow squeeze.'); }
+function squeeze() {
+  void unlockSound();
+  // Anchor local presses to the face nearest the current camera angle.
+  const viewNormal=camera.position.clone().normalize();
+  const axis=[Math.abs(viewNormal.x),Math.abs(viewNormal.y),Math.abs(viewNormal.z)];
+  const dominant=axis.indexOf(Math.max(...axis));
+  const normal=new THREE.Vector3().setComponent(dominant,Math.sign(viewNormal.getComponent(dominant)));
+  const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0);
+  right.addScaledVector(normal,-right.dot(normal)).normalize();
+  const up=new THREE.Vector3().crossVectors(normal,right).normalize();
+  const profile=makeSqueeze(squeezeIndex++,{normal:normal.toArray(),right:right.toArray(),up:up.toArray()});
+  buttonGesture={profile,started:performance.now()};
+  $('squeeze').dataset.squeeze=profile.name;
+  announce(profile.name+'.');
+}
 $('squeeze').addEventListener('click',squeeze);
 function reset() {
   clearGestures(); resetView();
@@ -289,7 +305,7 @@ canvas.addEventListener('keyup',event=>{ if (event.code==='Space'||event.key==='
 canvas.addEventListener('blur',()=>{heldKey=false;});
 function clearGestures(){
   const ids=[...contacts.keys()];if(orbitPointer)ids.push(orbitPointer.id);
-  contacts.clear();orbitPointer=null;pinch=null;pinchStart=null;heldKey=false;squeezeUntil=0;sound.silence();
+  contacts.clear();orbitPointer=null;pinch=null;pinchStart=null;heldKey=false;squeezeUntil=0;buttonGesture=null;sound.silence();
   for(const id of ids)if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);
 }
 function setMode(mode){
@@ -345,14 +361,26 @@ function animate(now) {
     const held=Math.min((now-c.started)/1000,1.8);
     c.depth=.24+.39*(1-Math.exp(-held*2)) + Math.max(0,(c.pressure||.5)-.5)*.25;
   }
-  const auto=now<squeezeUntil||heldKey;
-  if(auto)active.push({point:keyboardPoint,normal:[0,0,1],drag:[0,-.10,0],radius:.62,depth:.38});
-  const soundLoad=active.reduce((sum,c)=>sum+c.depth,0);
-  sound.update(dt,soundLoad,pinch?.amount||0);
-  // Reduced motion removes whole-object compression, keeping direct local input.
-  if(active.length||pinch||physics.activity>.00002) {
-    physics.step(dt,active,pinch,auto&&!reducedMotion?.72:0);
-    if(!active.length&&!pinch&&physics.activity<=.00002)physics.reset();
+  const keyboardAuto=now<squeezeUntil||heldKey;
+  if(keyboardAuto)active.push({point:keyboardPoint,normal:[0,0,1],drag:[0,-.10,0],radius:.62,depth:.38});
+  if(buttonGesture&&now-buttonGesture.started>=buttonGesture.profile.duration)buttonGesture=null;
+  let autoPinch=null,autoSquash=keyboardAuto&&!reducedMotion?.72:0;
+  if(buttonGesture){
+    const {profile,started}=buttonGesture;
+    const amount=.2+.8*(1-Math.exp(-(now-started)/170));
+    for(const c of profile.contacts)active.push({...c,depth:c.depth*amount,drag:c.drag.map(v=>v*amount)});
+    if(!reducedMotion){
+      autoPinch=profile.pinch?{axis:profile.pinch.axis,amount:profile.pinch.amount*amount}:null;
+      autoSquash+=profile.squeeze*amount;
+    }
+  }
+  const auto=keyboardAuto||!!buttonGesture;
+  const effectivePinch=pinch||autoPinch;
+  const soundLoad=active.reduce((sum,c)=>sum+c.depth,0)+autoSquash*.3;
+  sound.update(dt,soundLoad,effectivePinch?.amount||0);
+  if(active.length||effectivePinch||physics.activity>.00002) {
+    physics.step(dt,active,effectivePinch,autoSquash);
+    if(!active.length&&!effectivePinch&&physics.activity<=.00002)physics.reset();
     physics.writePositions(geometry.attributes.position.array);
     geometry.attributes.position.needsUpdate=true; geometry.computeVertexNormals();
     needsRender=true;
