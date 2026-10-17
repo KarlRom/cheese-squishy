@@ -7,11 +7,12 @@
   <meta name="description" content="Tactile 3D cheese and pearl squishies with slow-rise deformation and soft sticky sounds.">
   <title>Cheese squishy</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=2.4.1">
+  <link rel="stylesheet" href="styles.css?v=2.5.0">
 </head>
-<body>
+<body data-scene="table">
   <div class="app">
     <button class="settings-toggle icon-button" id="settings-toggle" aria-label="Settings" title="Settings" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="white"/><circle cx="15" cy="17" r="3" fill="white"/></svg></button>
+    <button class="put-down icon-button" id="put-down" aria-label="Put squishy back on the table" title="Back to table" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12h18M5 12v8M19 12v8M8 8l4 3 4-3M12 3v8"/></svg></button>
     <main aria-label="Cheese squishy">
       <div class="toy-picker" role="group" aria-label="Choose a squishy">
         <button id="toy-cheese" aria-pressed="true" aria-label="Cheese squishy"><span class="toy-swatch cheese-swatch" aria-hidden="true"></span>Cheese</button>
@@ -23,6 +24,7 @@
         <div class="error" id="error" hidden><strong>WebGL 2 required.</strong><p>Enable hardware acceleration or try another browser.</p></div>
       </div>
       <div class="interaction">
+        <button id="pick-up" class="pickup-button">Pick up</button>
         <div class="toolbar">
           <div class="mode-control" role="group" aria-label="Interaction mode"><button id="mode-squish" aria-pressed="true">Squish</button><button id="mode-rotate" aria-pressed="false">Rotate</button></div>
           <button id="squeeze" class="primary" aria-label="Squeeze the cheese" title="Try a different squeeze">Squeeze</button>
@@ -48,6 +50,6 @@
     </main>
   </div>
   <noscript><p class="error">Enable JavaScript to squish.</p></noscript>
-  <script type="module" src="app.js?v=2.4.1"></script>
+  <script type="module" src="app.js?v=2.5.0"></script>
 </body>
 </html>

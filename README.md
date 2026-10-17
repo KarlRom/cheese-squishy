@@ -120,3 +120,6 @@ For changes, edit the source files and refresh the browser. There is no build st
 Use the Cheese / Pearl selector to change toys. Pearl is a welded, smooth spheroid with a physically based clearcoat, subtle thin-film iridescence, and a milky translucent body. Both toys retain their own dents while switching; the selected toy is remembered on this device. Existing rotation, zoom, touch, sound, and six squeeze styles work with both.
 
 Both choices are included for now. `toys.js` separates toy identity and the planned `pearl-coconut-oil` entitlement from rendering. This is a future integration point only: no payment, purchase screen, or secure ownership verification exists. Before selling the native toy, integrate StoreKit with a registered product and verified entitlements, restore purchases, and handle pending/cancelled/revoked transactions. Never use the saved toy preference as proof of payment.
+
+## Bedroom opening (2.5.0)
+The selected toy starts on a light oak table in an offline 3D bedroom. Tap the toy, press Enter/Space on the canvas, or use Pick up. A 1.45-second lift fades the room into the white squishing view. Reduced motion skips the lift. The table icon returns the toy to the room and resets its shape. Both toys share this flow; switching and deformation are paused during pickup.

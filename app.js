@@ -1,3 +1,5 @@
+import {createBedroom} from './room.js?v=2.5.0';
+import {pickupPose,LIFT_SECONDS} from './pickup.js';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
@@ -35,6 +37,9 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 const scene = new THREE.Scene();
 let needsRender = true;
+let introPhase='table',liftElapsed=0;
+const bedroomCamera=new THREE.Vector3(6,4.5,10.5);
+const bedroomTarget=new THREE.Vector3(0,-.15,0);
 const camera = new THREE.PerspectiveCamera(34, 1, .1, 60);
 const homeView = {theta: .635, phi: 1.16};
 const view = {...homeView, radius: HOME_RADIUS};
@@ -46,7 +51,9 @@ function turnView(dx=0,dy=0) {
   const optics=cameraZoom(view.radius);
   camera.position.setFromSphericalCoords(optics.distance,view.phi,view.theta);
   camera.zoom=optics.zoom;camera.updateProjectionMatrix();
-  camera.lookAt(0,0,0); camera.updateMatrixWorld();
+  camera.lookAt(0,0,0);
+  if(introPhase==='table'){camera.position.copy(bedroomCamera);camera.zoom=1;camera.lookAt(bedroomTarget);camera.updateProjectionMatrix();}
+  camera.updateMatrixWorld();
   canvas.dataset.view = `${view.theta.toFixed(3)},${view.phi.toFixed(3)}`;
   canvas.dataset.zoom=(HOME_RADIUS/view.radius).toFixed(3);
   needsRender=true;
@@ -191,6 +198,7 @@ function createToy(id){
     transmission:.22,thickness:1.1,attenuationColor:0xfae9df,attenuationDistance:3.2,
     envMap:pearl?pearlEnvironment.texture:null,envMapIntensity:1.35
   }:{color:0xffffff,vertexColors:true,roughness:.28,metalness:0,clearcoat:.30,clearcoatRoughness:.30,envMapIntensity:.65});
+  material.fog=false;
   const mesh=new THREE.Mesh(geometry,material);
   geometry.boundingSphere.radius=3.2;mesh.castShadow=true;mesh.receiveShadow=true;
   const rest=geometry.attributes.position.array.slice();
@@ -210,7 +218,9 @@ gradient.addColorStop(0,'rgba(83,62,21,.23)'); gradient.addColorStop(.4,'rgba(83
 ctx.fillStyle = gradient; ctx.fillRect(0,0,256,256);
 const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
 const shadow = new THREE.Mesh(new THREE.PlaneGeometry(4.3,3.7),new THREE.MeshBasicMaterial({ map: shadowTexture, transparent: true, depthWrite: false, toneMapped: false }));
-shadow.rotation.x = -Math.PI/2; shadow.position.set(.1,-1.055,.05); scene.add(shadow);
+shadow.rotation.x = -Math.PI/2; shadow.position.set(.1,-1.035,.05); scene.add(shadow);
+const bedroom=createBedroom();scene.add(bedroom);
+scene.fog=new THREE.Fog(0xffffff,18,45);
 
 function resize() {
   const { width, height } = stage.getBoundingClientRect();
@@ -236,7 +246,11 @@ function setRay(x,y) {
 function beginContact(event) {
   if (contacts.size >= 4 || event.button > 2 || event.button===1) return;
   setRay(event.clientX,event.clientY);
+  mesh.updateMatrixWorld();
   const hit = raycaster.intersectObject(mesh)[0];
+  if(introPhase!=='ready'){
+    event.preventDefault();if(introPhase==='table'&&hit&&event.button!==2)pickUp();return;
+  }
   if(interactionMode==='rotate'||orbitPointers.size>0||event.shiftKey||event.button===2||!hit){
     if(contacts.size||orbitPointers.size>=2)return;
     event.preventDefault(); canvas.focus({preventScroll:true});canvas.setPointerCapture(event.pointerId);
@@ -322,11 +336,12 @@ for (const type of ['pointerup','pointercancel','lostpointercapture']) canvas.ad
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 canvas.addEventListener('wheel',event=>{
   event.preventDefault();
-  if(contacts.size||orbitPointers.size)return;
+  if(introPhase!=='ready'||contacts.size||orbitPointers.size)return;
   const pixels=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?stage.clientHeight:1);
   setZoom(view.radius*Math.exp(THREE.MathUtils.clamp(pixels,-200,200)*.0015));
 },{passive:false});
 function squeeze() {
+  if(introPhase!=='ready'){pickUp();return;}
   void unlockSound(); void sound.touch('press',.75);
   // Anchor local presses to the face nearest the current camera angle.
   const viewNormal=camera.position.clone().normalize();
@@ -359,6 +374,10 @@ function reset() {
 }
 $('reset').addEventListener('click',reset);
 canvas.addEventListener('keydown',event=>{
+  if(introPhase!=='ready'){
+    if(event.code==='Space'||event.key==='Enter'){event.preventDefault();pickUp();}
+    return;
+  }
   if(['+','=','-','_','0'].includes(event.key)){
     event.preventDefault();clearGestures();
     setZoom(event.key==='0'?HOME_RADIUS:view.radius*(event.key==='-'||event.key==='_'?1.18:1/1.18));return;
@@ -412,9 +431,10 @@ function updateToyUI(){
   document.querySelector('main').setAttribute('aria-label',selectedToy.label);
   keyboardPoint=[0,.12,selectedToy.id==='pearl'?1.24:1];
   setMode(interactionMode);
+  updateIntroUI();
 }
 function selectToy(id){
-  if(id===selectedToy.id)return;
+  if(id===selectedToy.id||introPhase==='lifting')return;
   clearGestures();scene.remove(mesh);
   selectedToy=toyFor(id);
   if(!toyStates.has(selectedToy.id))toyStates.set(selectedToy.id,createToy(selectedToy.id));
@@ -422,6 +442,54 @@ function selectToy(id){
   scene.add(mesh);squeezeIndex=0;updateSettings(false);updateToyUI();needsRender=true;
   try{localStorage.setItem('squishy-choice-v1',selectedToy.id);}catch{}
   announce(`${selectedToy.label} selected.`);
+}
+function updateIntroUI(){
+  document.body.dataset.scene=introPhase;
+  $('pick-up').disabled=introPhase==='lifting';
+  $('put-down').hidden=introPhase!=='ready';
+  for(const id of Object.keys(toys))$('toy-'+id).disabled=introPhase==='lifting';
+  document.querySelector('.toolbar').inert=introPhase!=='ready';
+  if(introPhase!=='ready'){
+    canvas.setAttribute('role','button');
+    canvas.setAttribute('aria-label',`${selectedToy.label} on a light oak table. Tap or press Enter to pick up.`);
+    $('gesture-help').textContent='Tap the squishy, or choose Pick up.';
+  }else canvas.setAttribute('role','img');
+}
+function pickUp(){
+  if(introPhase!=='table')return;
+  clearGestures();void unlockSound();void sound.touch('release',.45);
+  closeSettings();introPhase='lifting';liftElapsed=0;updateIntroUI();
+  announce('Picking up your squishy.');
+  if(reducedMotion)finishPickup();needsRender=true;
+}
+function finishPickup(){
+  introPhase='ready';mesh.position.set(0,0,0);bedroom.visible=false;scene.fog=null;
+  shadow.visible=false;turnView();setMode(interactionMode);updateIntroUI();needsRender=true;
+  canvas.focus({preventScroll:true});announce('Ready to squish.');
+}
+function putDown(){
+  if(introPhase!=='ready')return;
+  reset();introPhase='table';liftElapsed=0;bedroom.visible=true;bedroom.position.y=0;
+  shadow.visible=true;shadow.position.y=-1.035;shadow.material.opacity=1;
+  scene.fog=new THREE.Fog(0xffffff,18,45);turnView();updateIntroUI();needsRender=true;
+  announce('Back on the table.');
+}
+$('pick-up').addEventListener('click',pickUp);
+$('put-down').addEventListener('click',putDown);
+function animatePickup(dt){
+  liftElapsed+=dt;
+  const pose=pickupPose(liftElapsed/LIFT_SECONDS);
+  bedroom.position.y=pose.roomY;mesh.position.y=pose.toyY;
+  shadow.position.y=-1.035+pose.roomY;shadow.material.opacity=pose.shadowOpacity;
+  const optics=cameraZoom(view.radius);
+  const destination=new THREE.Vector3().setFromSphericalCoords(optics.distance,view.phi,view.theta);
+  camera.position.copy(bedroomCamera).lerp(destination,pose.ease);
+  camera.zoom=THREE.MathUtils.lerp(1,optics.zoom,pose.ease);
+  camera.lookAt(bedroomTarget.clone().multiplyScalar(1-pose.ease));
+  camera.updateProjectionMatrix();camera.updateMatrixWorld();
+  scene.fog.near=pose.fogNear;scene.fog.far=pose.fogFar;
+  needsRender=true;
+  if(pose.progress===1)finishPickup();
 }
 for(const id of Object.keys(toys))$('toy-'+id).addEventListener('click',()=>selectToy(id));
 updateToyUI();
@@ -464,6 +532,7 @@ updateSettings(false);
 function animate(now) {
   if(paused)return;
   const dt=lastTime?Math.min((now-lastTime)/1000,.05):1/60; lastTime=now;
+  if(introPhase==='lifting')animatePickup(dt);
   const active=[...contacts.values()];
   for(const c of active) {
     const held=Math.min((now-c.started)/1000,1.8);
@@ -497,7 +566,7 @@ function animate(now) {
     shadow.scale.set(1+physics.activity*.45,1+physics.activity*.45,1);
     renderer.render(scene,camera); needsRender=false;
   }
-  if(now-uiClock>1000){
+  if(introPhase==='ready'&&now-uiClock>1000){
     uiClock=now;
     if(!contacts.size&&!auto&&physics.activity>.003)announce('Letting go, very slowly.');
     else if(!contacts.size&&!auto&&physics.activity<=.003)announce('A small pause, just for you.');

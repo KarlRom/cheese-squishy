@@ -10,3 +10,10 @@
 .cheese-swatch{border-radius:5px;background:radial-gradient(ellipse at 65% 65%,#cf9415 0 13%,transparent 17%),radial-gradient(ellipse at 30% 28%,#dda318 0 12%,transparent 17%),linear-gradient(135deg,#ffe49a,#e8b334);box-shadow:inset 0 0 0 1px #c49b3620}
 .pearl-swatch{border-radius:50%;background:radial-gradient(ellipse at 28% 22%,#fff 3%,#fbf8f6 16%,#e1d5e5 42%,#c8cbd5 56%,#fbf0df 77%,#ded7df 90%);box-shadow:inset 0 0 0 1px #81788922}
 body[data-toy=pearl] .primary{background:#f1edf4;border-color:#e1dce8;color:#695d71}body[data-toy=pearl] .primary:hover{background:#e8e1ee}
+
+.put-down{position:absolute;top:max(18px,env(safe-area-inset-top));right:max(73px,calc(env(safe-area-inset-right) + 53px));z-index:5}
+.pickup-button{border:1px solid #d9c8b0;border-radius:25px;min-height:44px;padding:0 24px;background:#fffdf9;color:#786650;font-size:12px}
+body[data-scene=ready] .pickup-button{display:none}
+body:not([data-scene=ready]) .toolbar,body:not([data-scene=ready]) .view-buttons{display:none!important}
+body[data-scene=lifting] .pickup-button{visibility:hidden}
+body[data-scene=table] canvas{cursor:pointer}
