@@ -7,14 +7,14 @@
   <meta name="description" content="A tactile 3D cheese squishy with slow-rise deformation and sticky sounds.">
   <title>Cheese squishy</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=1.4.0">
+  <link rel="stylesheet" href="styles.css?v=1.8.0">
 </head>
 <body>
   <div class="app">
     <button class="settings-toggle icon-button" id="settings-toggle" aria-label="Settings" title="Settings" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="white"/><circle cx="15" cy="17" r="3" fill="white"/></svg></button>
     <main aria-label="Cheese squishy">
       <div class="stage" id="stage">
-        <canvas id="squishy" tabindex="0" role="img" aria-label="Interactive 3D cheese. Press and hold to dent, drag to stretch, or pinch to squeeze. Drag the white space to turn the view, or choose Rotate. Hold Space to squeeze; arrow keys move the press; R resets." aria-describedby="gesture-help"></canvas>
+        <canvas id="squishy" tabindex="0" role="img" aria-label="Interactive 3D cheese. Press and hold to dent, drag to stretch, or pinch to squeeze. Drag the white space to turn the view, or choose Rotate and pinch to zoom. Hold Space to squeeze; arrow keys move the press; R resets." aria-describedby="gesture-help"></canvas>
         <div class="loading" id="loading" role="status" aria-label="Loading"><span aria-hidden="true"></span></div>
         <div class="error" id="error" hidden><strong>WebGL 2 required.</strong><p>Enable hardware acceleration or try another browser.</p></div>
       </div>
@@ -24,7 +24,7 @@
           <button id="squeeze" class="primary" aria-label="Squeeze the cheese" title="Try a different squeeze">Squeeze</button>
           <button id="reset" class="icon-button" aria-label="Reset cheese and view" title="Reset (R)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6"/></svg></button>
         </div>
-        <div class="view-buttons" id="view-buttons" role="group" aria-label="Rotate without dragging" hidden><button id="view-left" aria-label="Rotate left">←</button><button id="view-right" aria-label="Rotate right">→</button><button id="view-up" aria-label="View from above">↑</button><button id="view-down" aria-label="View from below">↓</button><button id="view-home" aria-label="Reset view" title="Reset view">↺</button></div>
+        <div class="view-buttons" id="view-buttons" role="group" aria-label="Rotate and zoom without gestures" hidden><button id="view-left" aria-label="Rotate left">←</button><button id="view-right" aria-label="Rotate right">→</button><button id="view-up" aria-label="View from above">↑</button><button id="view-down" aria-label="View from below">↓</button><button id="zoom-out" aria-label="Zoom out" title="Zoom out">−</button><button id="zoom-in" aria-label="Zoom in" title="Zoom in">+</button><button id="view-home" aria-label="Reset view" title="Reset view">↺</button></div>
         <p id="gesture-help" class="sr-only">Press and hold, drag to stretch, or pinch to squeeze.</p>
         <p id="status" class="sr-only" role="status" aria-live="polite"></p>
       </div>
@@ -44,6 +44,6 @@
     </main>
   </div>
   <noscript><p class="error">Enable JavaScript to squish.</p></noscript>
-  <script type="module" src="app.js?v=1.7.0"></script>
+  <script type="module" src="app.js?v=1.8.0"></script>
 </body>
 </html>

@@ -34,6 +34,7 @@ The visible interface contains only the cheese and essential controls. Instructi
 ## Controls and accessibility
 
 - **Rotate 3D:** switch modes, then drag with one finger or the mouse to turn the cheese through 360° horizontally and tilt to inspect the top and underside. There is no automatic spinning or inertia. Rotation changes the view around the same live 3D mesh, so your dents remain on the correct faces.
+- **Zoom:** in Rotate mode, spread two fingers to zoom in or bring them together to zoom out. One finger still rotates; lifting either finger resumes rotation without a jump. In Squish mode, two fingers on the cheese retain the original squeeze gesture. A mouse wheel or trackpad pinch over the canvas also zooms when no direct contact is active. Use **+ / −** buttons in Rotate mode, or focus the canvas and press + / −; 0 restores the default zoom. Zoom is bounded, and Reset view restores the starting angle and zoom.
 - **Tap rotation alternatives:** in Rotate mode, use the left/right/up/down buttons or focus the canvas and use arrow keys. **Reset view** restores the initial camera angle without removing dents.
 - **Squish:** switch back to press or pinch whichever face is now visible. Dragging the white area around the cube also rotates the view in Squish mode. On desktop, Shift-drag or right-drag turns the view directly.
 
@@ -79,7 +80,7 @@ If you cannot hear it, check **Settings → Sound**, its volume slider, device/m
 
 The app targets display refresh with `requestAnimationFrame`, caps pixel ratio at 1.8, uses fewer vertices on small screens, skips mesh/render work when settled, and suspends animation when hidden. Rendering performance varies by phone/GPU; 60 fps is a target, not a guarantee. No real-device multi-touch or device-specific 60 fps claim is made.
 
-JavaScript syntax and ten numerical deformation tests were checked during development. Narrow-screen browser QA covered rendering, a held local press, automatic squeezing, reset, the settings panel, drag rotation, tap rotation controls, view reset, and pressing a face after turning the view. Eleven real browser audio signal checks also passed: gesture unlock, press output, drag response, mute, unmute/pinch, release silence, reset-tail cleanup, and suspension. The app sound switch and volume control were checked in the browser. Physical phone multi-touch and device audio behavior should be tested on your target devices.
+JavaScript syntax and fourteen numerical deformation and zoom tests were checked during development. Narrow-screen browser QA covered rendering, a held local press, automatic squeezing, reset, the settings panel, drag rotation, tap rotation controls, view reset, and pressing a face after turning the view. Eleven real browser audio signal checks also passed: gesture unlock, press output, drag response, mute, unmute/pinch, release silence, reset-tail cleanup, and suspension. The app sound switch and volume control were checked in the browser. Physical phone multi-touch and device audio behavior should be tested on your target devices.
 
 To rerun the numerical checks with Node.js 20+:
 
@@ -88,6 +89,8 @@ node --test tests/*.test.js
 ```
 
 For real Web Audio output checks, run the local server and visit **http://localhost:8000/tests/sound.html**, then click **Run audio checks**. It checks gesture unlock, audible signal generation, drag response, mute, unmute/pinch, release silence, reset-tail cleanup, and suspension.
+
+Four zoom checks verify pinch direction, frame-independent scaling, safe limits and degenerate contact spacing. Browser QA checked zoom buttons, wheel zoom and view reset; physical phone multi-touch remains unverified.
 
 The numerical tests also verify that all six automatic squeeze profiles produce distinct stable shapes and that local presses follow alternate visible faces. They cover localized deformation, monotonic release, resistance and recovery behavior, pinch direction, stress/floor/reset stability, and frame-rate-independent release.
 
@@ -98,6 +101,7 @@ The numerical tests also verify that all six automatic squeeze profiles produce 
 - `app.js` — mesh construction, rendering, ray casting, gestures, and UI
 - `physics.js` — standalone deformation solver
 - `squeezes.js` — six automatic squeeze profiles
+- `zoom.js` — bounded two-finger zoom calculation
 - `sound.js` — live gesture-driven procedural squishy audio
 - `vendor/three.module.js` — pinned Three.js 0.170.0
 - `vendor/THREE-LICENSE.txt` — Three.js MIT license

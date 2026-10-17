@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import { SquishyMaterial } from './physics.js';
+import { HOME_RADIUS, clampRadius, pinchRadius } from './zoom.js';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=1.7.0';
 const sound = new SquishySound();
@@ -34,16 +35,20 @@ const scene = new THREE.Scene();
 let needsRender = true;
 const camera = new THREE.PerspectiveCamera(34, 1, .1, 60);
 const homeView = {theta: .635, phi: 1.16};
-const view = {...homeView, radius: 7.8};
-let interactionMode='squish', orbitPointer=null;
+const view = {...homeView, radius: HOME_RADIUS};
+let interactionMode='squish';
+const orbitPointers=new Map();
+let zoomStart=null;
 function turnView(dx=0,dy=0) {
   view.theta -= dx; view.phi = THREE.MathUtils.clamp(view.phi-dy,.12,Math.PI-.12);
   camera.position.setFromSphericalCoords(view.radius,view.phi,view.theta);
   camera.lookAt(0,0,0); camera.updateMatrixWorld();
   canvas.dataset.view = `${view.theta.toFixed(3)},${view.phi.toFixed(3)}`;
+  canvas.dataset.zoom=(HOME_RADIUS/view.radius).toFixed(3);
   needsRender=true;
 }
-function resetView() {view.theta=homeView.theta;view.phi=homeView.phi;turnView();}
+function setZoom(radius){view.radius=clampRadius(radius);turnView();}
+function resetView() {view.theta=homeView.theta;view.phi=homeView.phi;view.radius=HOME_RADIUS;turnView();}
 turnView();
 scene.add(new THREE.HemisphereLight(0xfff9e9, 0xd6bd8a, 1.0));
 const key = new THREE.DirectionalLight(0xfff9ed, 3.0);
@@ -185,13 +190,17 @@ function setRay(x,y) {
   raycaster.setFromCamera(ndc,camera);
 }
 function beginContact(event) {
-  if (contacts.size >= 4 || orbitPointer || event.button > 2 || event.button===1) return;
+  if (contacts.size >= 4 || event.button > 2 || event.button===1) return;
   setRay(event.clientX,event.clientY);
   const hit = raycaster.intersectObject(mesh)[0];
-  if(interactionMode==='rotate'||event.shiftKey||event.button===2||!hit){
-    if(contacts.size)return;
+  if(interactionMode==='rotate'||orbitPointers.size>0||event.shiftKey||event.button===2||!hit){
+    if(contacts.size||orbitPointers.size>=2)return;
     event.preventDefault(); canvas.focus({preventScroll:true});canvas.setPointerCapture(event.pointerId);
-    orbitPointer={id:event.pointerId,x:event.clientX,y:event.clientY};
+    orbitPointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+    if(orbitPointers.size===2){
+      const [a,b]=[...orbitPointers.values()];
+      zoomStart={distance:Math.max(1,Math.hypot(b.x-a.x,b.y-a.y)),radius:view.radius};
+    }
     announce('Turn it over. Find a new soft spot.'); return;
   }
   void unlockSound();
@@ -214,11 +223,19 @@ function beginContact(event) {
   updatePinch(true); announce('Let it melt into your fingers.');
 }
 function moveContact(event) {
-  if(orbitPointer?.id===event.pointerId){
+  const orbit=orbitPointers.get(event.pointerId);
+  if(orbit){
     event.preventDefault();
-    const scale=2*Math.PI/Math.max(320,Math.min(stage.clientWidth,stage.clientHeight)*1.8);
-    turnView((event.clientX-orbitPointer.x)*scale,(event.clientY-orbitPointer.y)*scale);
-    orbitPointer.x=event.clientX;orbitPointer.y=event.clientY;return;
+    const dx=event.clientX-orbit.x,dy=event.clientY-orbit.y;
+    orbit.x=event.clientX;orbit.y=event.clientY;
+    if(orbitPointers.size===2&&zoomStart){
+      const [a,b]=[...orbitPointers.values()];
+      setZoom(pinchRadius(zoomStart.radius,zoomStart.distance,Math.hypot(b.x-a.x,b.y-a.y)));
+    }else{
+      const scale=2*Math.PI/Math.max(320,Math.min(stage.clientWidth,stage.clientHeight)*1.8);
+      turnView(dx*scale,dy*scale);
+    }
+    return;
   }
   const c = contacts.get(event.pointerId); if (!c) return;
   event.preventDefault();
@@ -241,8 +258,8 @@ function updatePinch(start) {
   pinch={axis,amount:THREE.MathUtils.clamp(1-distance/pinchStart,0,.65)};
 }
 function endContact(event) {
-  if(orbitPointer?.id===event.pointerId){
-    orbitPointer=null;
+  if(orbitPointers.delete(event.pointerId)){
+    zoomStart=null;
     if(canvas.hasPointerCapture(event.pointerId))canvas.releasePointerCapture(event.pointerId);
     return;
   }
@@ -259,6 +276,12 @@ canvas.addEventListener('click',()=>{void unlockSound();});
 canvas.addEventListener('pointermove',moveContact);
 for (const type of ['pointerup','pointercancel','lostpointercapture']) canvas.addEventListener(type,endContact);
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
+canvas.addEventListener('wheel',event=>{
+  event.preventDefault();
+  if(contacts.size||orbitPointers.size)return;
+  const pixels=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?stage.clientHeight:1);
+  setZoom(view.radius*Math.exp(THREE.MathUtils.clamp(pixels,-200,200)*.0015));
+},{passive:false});
 function squeeze() {
   void unlockSound(); void sound.touch('press',.75);
   // Anchor local presses to the face nearest the current camera angle.
@@ -286,6 +309,10 @@ function reset() {
 }
 $('reset').addEventListener('click',reset);
 canvas.addEventListener('keydown',event=>{
+  if(['+','=','-','_','0'].includes(event.key)){
+    event.preventDefault();clearGestures();
+    setZoom(event.key==='0'?HOME_RADIUS:view.radius*(event.key==='-'||event.key==='_'?1.18:1/1.18));return;
+  }
   if (event.code==='Space'||event.key==='Enter') { event.preventDefault(); if (!event.repeat) { void unlockSound(); void sound.touch('press',.7); heldKey=true; announce('A good, slow squeeze.'); } }
   if (event.key.toLowerCase()==='r') { event.preventDefault(); reset(); }
   if (event.key.startsWith('Arrow')) {
@@ -307,8 +334,8 @@ canvas.addEventListener('keydown',event=>{
 canvas.addEventListener('keyup',event=>{ if (event.code==='Space'||event.key==='Enter') {event.preventDefault();if(heldKey)void sound.touch('release',.7);heldKey=false;} });
 canvas.addEventListener('blur',()=>{heldKey=false;});
 function clearGestures(){
-  const ids=[...contacts.keys()];if(orbitPointer)ids.push(orbitPointer.id);
-  contacts.clear();orbitPointer=null;pinch=null;pinchStart=null;heldKey=false;squeezeUntil=0;buttonGesture=null;sound.silence();
+  const ids=[...contacts.keys(),...orbitPointers.keys()];
+  contacts.clear();orbitPointers.clear();zoomStart=null;pinch=null;pinchStart=null;heldKey=false;squeezeUntil=0;buttonGesture=null;sound.silence();
   for(const id of ids)if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);
 }
 function setMode(mode){
@@ -317,8 +344,8 @@ function setMode(mode){
   $('mode-rotate').setAttribute('aria-pressed',String(mode==='rotate'));
   $('view-buttons').hidden=mode!=='rotate';
   stage.classList.toggle('rotating',mode==='rotate');
-  $('gesture-help').textContent=mode==='rotate'?'Drag to turn · Use arrows to explore every side':'Press & hold · Drag to stretch · Pinch to squeeze';
-  canvas.setAttribute('aria-label',mode==='rotate'?'Rotatable 3D cheese cube. Drag or use arrow keys to turn it. Switch to Squish to press the visible faces.':'Interactive 3D cheese cube. Press and drag to dent it, or pinch with two fingers. Hold Space to squeeze, use arrow keys to move the press, and R to reset. Drag the white space to turn the view.');
+  $('gesture-help').textContent=mode==='rotate'?'Drag to turn; pinch to zoom. Arrow keys rotate, plus and minus zoom, zero resets zoom.':'Press & hold · Drag to stretch · Pinch to squeeze';
+  canvas.setAttribute('aria-label',mode==='rotate'?'Rotatable 3D cheese cube. Drag to turn, pinch with two fingers to zoom, or use the zoom buttons. Arrow keys rotate; plus and minus zoom; zero resets zoom. Switch to Squish to press it.':'Interactive 3D cheese cube. Press and drag to dent it, or pinch with two fingers. Hold Space to squeeze, use arrow keys to move the press, and R to reset. Drag the white space to turn the view.');
   announce(mode==='rotate'?'Drag to turn the cheese.':'Ready for a little squeeze.');
 }
 $('mode-squish').addEventListener('click',()=>setMode('squish'));
@@ -326,6 +353,7 @@ $('mode-rotate').addEventListener('click',()=>setMode('rotate'));
 for(const [id,dx,dy] of [['view-left',-.45,0],['view-right',.45,0],['view-up',0,.3],['view-down',0,-.3]]){
   $(id).addEventListener('click',()=>{clearGestures();turnView(dx,dy);});
 }
+for(const [id,factor] of [['zoom-in',1/1.18],['zoom-out',1.18]])$(id).addEventListener('click',()=>{clearGestures();setZoom(view.radius*factor);});
 $('view-home').addEventListener('click',()=>{clearGestures();resetView();});
 function closeSettings() { $('settings').hidden=true; $('settings-toggle').setAttribute('aria-expanded','false'); }
 $('settings-toggle').addEventListener('click',()=>{
