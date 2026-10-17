@@ -19,9 +19,9 @@ export function makePearl(segments) {
       // Broad blush and ivory nacre clouds sit underneath the clearcoat.
       const cloud=.5+.5*Math.sin(p.x*2.6+p.z*1.7)*Math.cos(p.y*2.4-p.z);
       const warmth=.5+.5*Math.sin(p.y*2.6-p.x*1.8);
-      const blush=THREE.MathUtils.smoothstep(cloud*.72+warmth*.28,.18,.82);
+      const blush=.40*THREE.MathUtils.smoothstep(cloud*.72+warmth*.28,.18,.82);
       const ivory=new THREE.Color().setRGB(.995,.90,.76);
-      const pink=new THREE.Color().setRGB(.97,.66,.79);
+      const pink=new THREE.Color().setRGB(.98,.76,.84);
       const tint=ivory.lerp(pink,blush).multiplyScalar(.97+.03*warmth);
       colors.push(tint.r,tint.g,tint.b);
     }
