@@ -4,15 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="A tactile 3D cheese squishy with slow-rise deformation and sticky sounds.">
+  <meta name="description" content="Tactile 3D cheese and pearl squishies with slow-rise deformation and soft sticky sounds.">
   <title>Cheese squishy</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=1.8.0">
+  <link rel="stylesheet" href="styles.css?v=2.2.0">
 </head>
 <body>
   <div class="app">
     <button class="settings-toggle icon-button" id="settings-toggle" aria-label="Settings" title="Settings" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="white"/><circle cx="15" cy="17" r="3" fill="white"/></svg></button>
     <main aria-label="Cheese squishy">
+      <div class="toy-picker" role="group" aria-label="Choose a squishy">
+        <button id="toy-cheese" aria-pressed="true" aria-label="Cheese squishy"><span class="toy-swatch cheese-swatch" aria-hidden="true"></span>Cheese</button>
+        <button id="toy-pearl" aria-pressed="false" aria-label="Pearl coconut oil squishy"><span class="toy-swatch pearl-swatch" aria-hidden="true"></span>Pearl</button>
+      </div>
       <div class="stage" id="stage">
         <canvas id="squishy" tabindex="0" role="img" aria-label="Interactive 3D cheese. Press and hold to dent, drag to stretch, or pinch to squeeze. Drag the white space to turn the view, or choose Rotate and pinch to zoom. Hold Space to squeeze; arrow keys move the press; R resets." aria-describedby="gesture-help"></canvas>
         <div class="loading" id="loading" role="status" aria-label="Loading"><span aria-hidden="true"></span></div>
@@ -44,6 +48,6 @@
     </main>
   </div>
   <noscript><p class="error">Enable JavaScript to squish.</p></noscript>
-  <script type="module" src="app.js?v=2.1.0"></script>
+  <script type="module" src="app.js?v=2.2.0"></script>
 </body>
 </html>

@@ -1,4 +1,6 @@
+import { makePearl } from './toy-geometry.js?v=2.2.0';
 import * as THREE from './vendor/three.module.js';
+import { toys, toyFor } from './toys.js?v=2.2.0';
 import { SquishyMaterial } from './physics.js';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
@@ -149,16 +151,27 @@ function makeCheese(segments) {
   geometry.computeBoundingSphere();
   return geometry;
 }
-const geometry = makeCheese(matchMedia('(max-width: 600px)').matches ? 64 : 80);
-const material = new THREE.MeshPhysicalMaterial({ color: 0xffffff, vertexColors: true, roughness: .28, metalness: 0, clearcoat: .30, clearcoatRoughness: .30, envMapIntensity: .65 });
-const mesh = new THREE.Mesh(geometry, material);
-// A generous static bound covers every valid drag without per-frame bounds scans.
-geometry.boundingSphere.radius = 3.2;
-mesh.castShadow=true; mesh.receiveShadow=true;
-scene.add(mesh);
-const rest = geometry.attributes.position.array.slice();
-const restNormals = geometry.attributes.normal.array.slice();
-const physics = new SquishyMaterial(rest);
+function createToy(id){
+  const pearl=id==='pearl';
+  const geometry=pearl?makePearl(64):makeCheese(matchMedia('(max-width: 600px)').matches?64:80);
+  const material=new THREE.MeshPhysicalMaterial(pearl?{
+    color:0xf4e9e8,roughness:.19,metalness:.12,
+    clearcoat:1,clearcoatRoughness:.13,ior:1.46,
+    iridescence:.48,iridescenceIOR:1.32,iridescenceThicknessRange:[240,420],
+    sheen:.32,sheenColor:0xffedf8,sheenRoughness:.35,
+    transmission:.16,thickness:.85,attenuationColor:0xffe9dc,attenuationDistance:2.4,
+    envMapIntensity:1.1
+  }:{color:0xffffff,vertexColors:true,roughness:.28,metalness:0,clearcoat:.30,clearcoatRoughness:.30,envMapIntensity:.65});
+  const mesh=new THREE.Mesh(geometry,material);
+  geometry.boundingSphere.radius=3.2;mesh.castShadow=true;mesh.receiveShadow=true;
+  const rest=geometry.attributes.position.array.slice();
+  return {geometry,material,mesh,rest,restNormals:geometry.attributes.normal.array.slice(),physics:new SquishyMaterial(rest)};
+}
+const toyStates=new Map();
+let selectedToy=toyFor('cheese');
+try{selectedToy=toyFor(localStorage.getItem('squishy-choice-v1'));}catch{}
+let {geometry,material,mesh,rest,restNormals,physics}=createToy(selectedToy.id);
+toyStates.set(selectedToy.id,{geometry,material,mesh,rest,restNormals,physics});scene.add(mesh);
 
 // A feathered contact shadow on white. It never tints the page background.
 const shadowCanvas = document.createElement('canvas'); shadowCanvas.width = shadowCanvas.height = 256;
@@ -290,11 +303,17 @@ function squeeze() {
   const viewNormal=camera.position.clone().normalize();
   const axis=[Math.abs(viewNormal.x),Math.abs(viewNormal.y),Math.abs(viewNormal.z)];
   const dominant=axis.indexOf(Math.max(...axis));
-  const normal=new THREE.Vector3().setComponent(dominant,Math.sign(viewNormal.getComponent(dominant)));
+  const normal=selectedToy.id==='pearl'?viewNormal:new THREE.Vector3().setComponent(dominant,Math.sign(viewNormal.getComponent(dominant)));
   const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0);
   right.addScaledVector(normal,-right.dot(normal)).normalize();
   const up=new THREE.Vector3().crossVectors(normal,right).normalize();
   const profile=makeSqueeze(squeezeIndex++,{normal:normal.toArray(),right:right.toArray(),up:up.toArray()});
+  if(selectedToy.id==='pearl')for(const contact of profile.contacts){
+    const p=new THREE.Vector3(...contact.point);p.y-=.025;
+    const scale=1/Math.sqrt((p.x/1.32)**2+(p.y/1.04)**2+(p.z/1.25)**2);
+    p.multiplyScalar(scale);contact.point=[p.x,p.y+.025,p.z];
+    contact.normal=new THREE.Vector3(p.x/(1.32**2),p.y/(1.04**2),p.z/(1.25**2)).normalize().toArray();
+  }
   buttonGesture={profile,started:performance.now()};
   $('squeeze').dataset.squeeze=profile.name;
   announce(profile.name+'.');
@@ -307,7 +326,7 @@ function reset() {
   contacts.clear(); pinch=null; pinchStart=null; heldKey=false; squeezeUntil=0;
   physics.reset(); physics.writePositions(geometry.attributes.position.array);
   geometry.attributes.position.needsUpdate=true; geometry.computeVertexNormals();
-  needsRender=true; announce('Fresh cheese. Fresh start.');
+  needsRender=true; announce(`${selectedToy.name} reset.`);
 }
 $('reset').addEventListener('click',reset);
 canvas.addEventListener('keydown',event=>{
@@ -347,9 +366,30 @@ function setMode(mode){
   $('view-buttons').hidden=mode!=='rotate';
   stage.classList.toggle('rotating',mode==='rotate');
   $('gesture-help').textContent=mode==='rotate'?'Drag to turn; pinch to zoom. Arrow keys rotate, plus and minus zoom, zero resets zoom.':'Press & hold · Drag to stretch · Pinch to squeeze';
-  canvas.setAttribute('aria-label',mode==='rotate'?'Rotatable 3D cheese cube. Drag to turn, pinch with two fingers to zoom, or use the zoom buttons. Arrow keys rotate; plus and minus zoom; zero resets zoom. Switch to Squish to press it.':'Interactive 3D cheese cube. Press and drag to dent it, or pinch with two fingers. Hold Space to squeeze, use arrow keys to move the press, and R to reset. Drag the white space to turn the view.');
-  announce(mode==='rotate'?'Drag to turn the cheese.':'Ready for a little squeeze.');
+  canvas.setAttribute('aria-label',mode==='rotate'?`Rotatable 3D ${selectedToy.label}. Drag to turn, pinch with two fingers to zoom, or use the zoom buttons. Arrow keys rotate; plus and minus zoom; zero resets zoom. Switch to Squish to press it.`:`Interactive 3D ${selectedToy.label}. Press and drag to dent it, or pinch with two fingers. Hold Space to squeeze, use arrow keys to move the press, and R to reset. Drag the white space to turn the view.`);
+  announce(mode==='rotate'?'Drag to turn.':'Ready for a little squeeze.');
 }
+function updateToyUI(){
+  for(const id of Object.keys(toys))$('toy-'+id).setAttribute('aria-pressed',String(id===selectedToy.id));
+  document.body.dataset.toy=selectedToy.id;
+  $('squeeze').setAttribute('aria-label',`Squeeze the ${selectedToy.name.toLowerCase()}`);
+  $('reset').setAttribute('aria-label',`Reset ${selectedToy.name.toLowerCase()} and view`);
+  document.querySelector('main').setAttribute('aria-label',selectedToy.label);
+  keyboardPoint=[0,.12,selectedToy.id==='pearl'?1.24:1];
+  setMode(interactionMode);
+}
+function selectToy(id){
+  if(id===selectedToy.id)return;
+  clearGestures();scene.remove(mesh);
+  selectedToy=toyFor(id);
+  if(!toyStates.has(selectedToy.id))toyStates.set(selectedToy.id,createToy(selectedToy.id));
+  ({geometry,material,mesh,rest,restNormals,physics}=toyStates.get(selectedToy.id));
+  scene.add(mesh);squeezeIndex=0;updateSettings(false);updateToyUI();needsRender=true;
+  try{localStorage.setItem('squishy-choice-v1',selectedToy.id);}catch{}
+  announce(`${selectedToy.label} selected.`);
+}
+for(const id of Object.keys(toys))$('toy-'+id).addEventListener('click',()=>selectToy(id));
+updateToyUI();
 $('mode-squish').addEventListener('click',()=>setMode('squish'));
 $('mode-rotate').addEventListener('click',()=>setMode('rotate'));
 for(const [id,dx,dy] of [['view-left',-.45,0],['view-right',.45,0],['view-up',0,.3],['view-down',0,-.3]]){
@@ -432,8 +472,8 @@ function animate(now) {
 function pause(){clearGestures();sound.suspend();paused=true;cancelAnimationFrame(frameHandle);lastTime=0;}
 window.addEventListener('blur',()=>{clearGestures();sound.suspend();});
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden)pause();else{paused=false;lastTime=0;frameHandle=requestAnimationFrame(animate);}
+  if(document.hidden)pause();else if(paused){paused=false;lastTime=0;frameHandle=requestAnimationFrame(animate);}
 });
-canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();pause();$('error').hidden=false;$('error').innerHTML='<strong>The graphics connection paused.</strong><p>Reload this page to bring your cheese back.</p>';$('squeeze').disabled=true;});
+canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();pause();$('error').hidden=false;$('error').innerHTML='<strong>The graphics connection paused.</strong><p>Reload this page to bring your squishy back.</p>';$('squeeze').disabled=true;});
 $('loading').hidden=true;
 frameHandle=requestAnimationFrame(animate);

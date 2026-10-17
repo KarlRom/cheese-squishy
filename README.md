@@ -114,3 +114,9 @@ The numerical tests also verify that all six automatic squeeze profiles produce 
 - `icon.svg` — local favicon
 
 For changes, edit the source files and refresh the browser. There is no build step.
+
+## Pearl squishy (2.2.0)
+
+Use the Cheese / Pearl selector to change toys. Pearl is a welded, smooth spheroid with a physically based clearcoat, subtle thin-film iridescence, and a milky translucent body. Both toys retain their own dents while switching; the selected toy is remembered on this device. Existing rotation, zoom, touch, sound, and six squeeze styles work with both.
+
+Both choices are included for now. `toys.js` separates toy identity and the planned `pearl-coconut-oil` entitlement from rendering. This is a future integration point only: no payment, purchase screen, or secure ownership verification exists. Before selling the native toy, integrate StoreKit with a registered product and verified entitlements, restore purchases, and handle pending/cancelled/revoked transactions. Never use the saved toy preference as proof of payment.
