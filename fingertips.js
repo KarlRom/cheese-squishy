@@ -3,17 +3,22 @@ const FINGER_STRENGTH=.85;
 // around a pulling finger. A press keeps its small, localized footprint.
 export function fingerContact(contact){
   const drag=[...(contact.drag||[0,0,0])];
+  if(contact.depthControlled){
+    const along=drag.reduce((sum,v,i)=>sum+v*contact.normal[i],0);
+    for(let i=0;i<3;i++)drag[i]-=contact.normal[i]*along;
+  }
   let length=Math.hypot(...drag);
   if(length>1.08){for(let i=0;i<3;i++)drag[i]*=1.08/length;length=1.08;}
   const stretch=contact.scrunch?0:Math.max(0,length-.08);
-  const thickness=1-Math.exp(-stretch/.28);
+  const lift=contact.depthControlled?Math.max(0,Math.min(.36,contact.cameraPull||0)):0;
+  const thickness=1-Math.exp(-Math.max(stretch,lift*2.5)/.28);
   const travel=contact.scrunch?length:Math.min(length,.40*Math.tanh(length/.55));
   const dragScale=length>0?travel/length:1;
   return {...contact,localized:true,thickness,
     drag:drag.map(v=>v*dragScale*FINGER_STRENGTH),
     radius:Math.max(.17,Math.min(.28,contact.radius??.22))+(contact.scrunch?Math.min(.06,length*.055):thickness*.20),
     depth:Math.min(.46,Math.max(0,contact.depth??.34))*(1-Math.min(contact.scrunch ? .68 : .82,length*(contact.scrunch ? .65 : .82)))*FINGER_STRENGTH,
-    pull:contact.scrunch?0:.22*Math.tanh(stretch*1.8)*FINGER_STRENGTH};
+    pull:contact.scrunch?0:(contact.depthControlled?lift:.22*Math.tanh(stretch*1.8))*FINGER_STRENGTH};
 }
 
 // Overlapping fingers share a pressure budget. Separated fingertips retain

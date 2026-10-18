@@ -1,15 +1,15 @@
-import {LightingRig,lightingFor} from './lighting.js?v=2.16.0';
-import {toothLayout} from './bite.js?v=2.16.0';
-import {FingerPreview} from './finger-preview.js?v=2.16.0';
+import {LightingRig,lightingFor} from './lighting.js?v=2.17.0';
+import {toothLayout} from './bite.js?v=2.17.0';
+import {FingerPreview} from './finger-preview.js?v=2.17.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.16.0';
-import {HandMode} from './hand-mode.js?v=2.16.0';
-import {createBedroom} from './room.js?v=2.16.0';
+import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.17.0';
+import {HandMode} from './hand-mode.js?v=2.17.0';
+import {createBedroom} from './room.js?v=2.17.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.16.0';
+import { SquishyMaterial } from './physics.js?v=2.17.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -554,10 +554,14 @@ function handLoads(now){
         start:attachment.hit.clone(),plane:new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),attachment.hit)};
       handContacts.set(key,contact);pressed++;
     }
-    ids.add(key);contact.depth=.10+finger.strength*.32;contact.scrunch=false;
+    ids.add(key);
+    const pinching=hand.pinched&&(finger.tip===4||finger.tip===8);
+    const retreat=pinching?hand.depth.pull:0;
+    const pressDepth=pinching?.07+hand.depth.push*.34:.10+finger.strength*.32;
+    contact.depth=pressDepth*(1-retreat*.96);
+    contact.cameraPull=retreat*.36;contact.depthControlled=true;contact.scrunch=false;
     setRay(x,y);const point=raycaster.ray.intersectPlane(contact.plane,new THREE.Vector3());
     if(point){
-      const pinching=hand.pinched&&(finger.tip===4||finger.tip===8);
       contact.drag=point.sub(contact.start).clampLength(0,pinching?1.2:.075).multiplyScalar(pinching?.90:1).toArray();
     }
     const marker=fingerMarkers[fingerMarkers.length-1];marker.attachment=contact;marker.pressing=true;
@@ -575,7 +579,7 @@ function handLoads(now){
       const c=loads[i];
       // A deliberate thumb/index pinch retains its local sticky pull.
       if(c.handId===hand.id&&!(hand.pinched&&(c.tip===4||c.tip===8)))
-        loads[i]=scrunchContact(c,center,hand.scrunchStrength);
+        loads[i]={...scrunchContact(c,center,hand.scrunchStrength),depth:Math.max(c.depth,.12+hand.scrunchStrength*.28)};
     }
   }
   return {contacts:loads};

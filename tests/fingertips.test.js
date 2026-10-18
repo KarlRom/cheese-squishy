@@ -110,3 +110,19 @@ test('pull travel meets increasing resistance and saturates for extreme finger m
   assert.ok((travel(.8)-travel(.4))/.4<(travel(.4)-travel(.2))/.2);
   assert.ok(travel(100)<.35);assert.equal(travel(100),travel(1.08));
 });
+
+test('camera retreat pulls along the surface normal with a broad thick shoulder; approach presses inward',()=>{
+  const rest=new Float32Array([0,0,1,.3,0,1,1.3,0,1,0,0,-1]);
+  const retreat=new SquishyMaterial(rest),approach=new SquishyMaterial(rest);
+  const pulling=fingerContact({...press,depth:.03,depthControlled:true,cameraPull:.27});
+  const pushing=fingerContact({...press,depth:.38,depthControlled:true,cameraPull:0});
+  for(let i=0;i<120;i++){retreat.step(1/60,[pulling]);approach.step(1/60,[pushing]);}
+  assert.ok(retreat.offset[2]>.1);assert.ok(retreat.offset[5]>.5*retreat.offset[2]);
+  assert.ok(approach.offset[2]<-.2);assert.equal(retreat.offset[11],0);assert.equal(retreat.offset[8],0);
+});
+test('sideways camera dragging alone cannot create an outward lift',()=>{
+  const c=fingerContact({...press,drag:[1,0,0],depthControlled:true,cameraPull:0});
+  assert.equal(c.pull,0);assert.ok(c.drag[0]>.25);
+  const angled=fingerContact({...press,normal:[.6,0,.8],drag:[1,0,0],depthControlled:true,cameraPull:0});
+  assert.ok(Math.abs(angled.drag[0]*.6+angled.drag[2]*.8)<1e-10);
+});

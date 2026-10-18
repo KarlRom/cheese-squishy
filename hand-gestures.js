@@ -1,3 +1,4 @@
+import {trackHandDepth} from './hand-depth.js?v=2.17.0';
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const names=['Thumb','Index','Middle','Ring','Little'];
 const tips=[4,8,12,16,20],mcps=[2,5,9,13,17],pips=[3,6,10,14,18];
@@ -52,7 +53,10 @@ export function describeHand(points,aspect=4/3){
     return {name:names[i],tip,x:1-points[tip].x,y:points[tip].y,curl,...fingerShape(points,i,aspect)};
   });
   const curl=fingers.slice(1).reduce((sum,f)=>sum+f.curl/4,0);
-  return {pinchRatio,curl,palm,fingers,x:1-(points[4].x+points[8].x)/2,y:(points[4].y+points[8].y)/2};
+  const projected=(a,b)=>Math.hypot((a.x-b.x)*aspect,a.y-b.y);
+  const size={width:projected(points[5],points[17]),length:projected(points[0],points[9]),
+    visible:[0,5,9,13,17].every(i=>points[i].x>.015&&points[i].x<.985&&points[i].y>.015&&points[i].y<.985)};
+  return {pinchRatio,curl,palm,fingers,size,x:1-(points[4].x+points[8].x)/2,y:(points[4].y+points[8].y)/2};
 }
 export class HandGestures{
   constructor(){this.slots=[];this.nextId=0;this.lastTime=0;}
@@ -83,6 +87,7 @@ export class HandGestures{
         return {...finger,active,clearFrames};
       });
       const pinched=available[0].active&&available[1].active&&hand.pinchRatio<(old?.pinched ? .52 : .34);
+      const depth=trackHandDepth(hand.size,old?.depth,time,dt,pinched,aspect);
       // A loose multi-finger curl is enough; an isolated bent finger still presses alone.
       const curled=available.slice(1).filter(f=>f.active&&f.curl>(old?.closed ? .18 : .25)).length;
       const eligibleCurl=available.slice(1).reduce((sum,f)=>sum+(f.active?f.curl:0)/4,0);
@@ -92,12 +97,12 @@ export class HandGestures{
       const point=smooth(hand,old,time-(old?.seen??time)>120?.15:dt);
       const fingers=available.map((finger,j)=>{
         const before=old?.fingers?.[j],position=smooth(finger,before,dt);
-        const pressing=finger.active&&(closed||(j<2&&pinched)||(j>0&&finger.curl>(before?.pressing ? .25 : .35)));
+        const pressing=finger.active&&(depth.pushing||closed||(j<2&&pinched)||(j>0&&finger.curl>(before?.pressing ? .25 : .35)));
         return {...finger,...position,x:clamp(position.x),y:clamp(position.y),pressing,
-          strength:pressing?Math.max(j<2&&pinched?clamp(1-hand.pinchRatio/.65):0,finger.curl,closed?scrunchStrength:0):0};
+          strength:pressing?Math.max(j<2&&pinched?clamp(1-hand.pinchRatio/.65):0,finger.curl,closed?scrunchStrength:0,depth.push):0};
       });
       return {id:old?.id??this.nextId++,label:hand.label||old?.label,palm:hand.palm,seen:time,...point,
-        x:clamp(point.x),y:clamp(point.y),pinched,closed,scrunchStrength,fingers,
+        x:clamp(point.x),y:clamp(point.y),pinched,closed,scrunchStrength,fingers,depth,
         gripping:fingers.some(f=>f.pressing),strength:Math.max(0,...fingers.map(f=>f.strength))};
     });
     this.slots=[...output,...previous.filter(old=>!output.some(slot=>slot.id===old.id))].slice(0,2);

@@ -1,5 +1,5 @@
-import {BiteGesture} from './bite.js?v=2.15.0';
-import {HandGestures} from './hand-gestures.js?v=2.15.0';
+import {BiteGesture} from './bite.js?v=2.17.0';
+import {HandGestures} from './hand-gestures.js?v=2.17.0';
 export class HandMode{
   constructor({video,overlay,onHands,onMouth=()=>{},onStatus}){
     Object.assign(this,{video,overlay,onHands,onMouth,onStatus});
@@ -21,7 +21,7 @@ export class HandMode{
       this.video.srcObject=stream;await this.video.play();
       if(token!==this.session)return;
       this.status('starting','Loading hand tracking… First use may take a moment.');
-      const worker=new Worker(new URL('./hand-worker.js?v=2.15.0',document.baseURI));this.worker=worker;
+      const worker=new Worker(new URL('./hand-worker.js?v=2.17.0',document.baseURI));this.worker=worker;
       await new Promise((resolve,reject)=>{
         this.rejectInit=reject;
         const timer=setTimeout(()=>reject(new Error('load')),40000);this.initTimer=timer;
@@ -34,7 +34,7 @@ export class HandMode{
       });
       if(token!==this.session)return;
       this.active=true;this.busy=false;this.lastSent=0;this.lastVideoTime=-1;this.frameInterval=50;
-      this.status('active',this.faceAvailable?'Pinch to pull. Align your mouth with the toy, open briefly, then close to bite.':'Pinch to pull. Mouth tracking unavailable on this device.');
+      this.status('active',this.faceAvailable?'Move closer to push. Pinch and move away to pull. Open then close your mouth over the toy to bite.':'Move closer to push. Pinch and move away to pull. Mouth tracking unavailable on this device.');
       worker.onerror=()=>this.fail(token,'Hand tracking stopped. You can retry or use touch.');
       worker.onmessage=({data})=>{
         if(token!==this.session)return;

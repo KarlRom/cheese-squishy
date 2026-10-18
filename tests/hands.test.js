@@ -175,3 +175,31 @@ test('one apparently open frame cannot resurrect a hidden finger or a previous p
   for(const t of [240,300])assert.equal(tracker.update([hand({pinch:true})],t)[0].pinched,false);
   assert.equal(tracker.update([hand({pinch:true})],360)[0].pinched,true);
 });
+
+test('moving an extended hand closer activates depth pressing, while folded fingers remain excluded',()=>{
+  const tracker=new HandGestures();tracker.update([hand()],0);let closer;
+  for(let t=50;t<=650;t+=50)closer=tracker.update([hand({scale:1.25})],t)[0];
+  assert.ok(closer.depth.push>.4);assert.ok(closer.fingers.some(f=>f.pressing));
+  const p=folded().map(p=>({x:.5+(p.x-.5)*1.25,y:.5+(p.y-.5)*1.25,z:0}));
+  const fist=tracker.update([p],700)[0];
+  assert.ok(fist.fingers.every(f=>!f.active&&!f.pressing));assert.equal(fist.gripping,false);
+});
+test('pinching then retreating produces depth pull without confusing the gesture with hand size',()=>{
+  const tracker=new HandGestures();tracker.update([hand({pinch:true})],0);let away;
+  for(let t=50;t<=650;t+=50)away=tracker.update([hand({pinch:true,scale:.75})],t)[0];
+  assert.equal(away.pinched,true);assert.ok(away.depth.pull>.5);
+  assert.equal(away.depth.push,0);
+});
+
+test('two hands preserve opposite depth motions when detector ordering changes',()=>{
+  const tracker=new HandGestures(),left=[{categoryName:'Left',score:.99}],right=[{categoryName:'Right',score:.99}];
+  const initial=tracker.update([hand({pinch:true,scale:.8,dx:-.2}),hand({pinch:true,scale:.8,dx:.2})],0,4/3,[left,right]);
+  let output;
+  for(let t=50;t<=700;t+=50){
+    const near=hand({pinch:true,scale:1.1,dx:-.2}),far=hand({pinch:true,scale:.6,dx:.2});
+    output=tracker.update(t%100?[far,near]:[near,far],t,4/3,t%100?[right,left]:[left,right]);
+  }
+  const near=output.find(h=>h.id===initial[0].id),far=output.find(h=>h.id===initial[1].id);
+  assert.ok(near.depth.push>.5);assert.equal(near.depth.pull,0);
+  assert.ok(far.depth.pull>.5);assert.equal(far.depth.push,0);
+});
