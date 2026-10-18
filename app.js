@@ -1,7 +1,8 @@
+import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
 import {fingerContact} from './fingertips.js?v=2.8.0';
 import {HandMode} from './hand-mode.js?v=2.8.0';
 import {createBedroom} from './room.js?v=2.5.0';
-import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.6.0';
+import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
@@ -40,6 +41,8 @@ renderer.toneMappingExposure = 1.0;
 const scene = new THREE.Scene();
 let needsRender = true;
 let introPhase='table',liftElapsed=0,toySlide=null,dropStart=null;
+let tableBody=null,liftFrom=null,dropIndex=0;
+const identityRotation=new THREE.Quaternion(),unitScale=new THREE.Vector3(1,1,1);
 function isTransitioning(){return !!toySlide||introPhase==='lifting'||introPhase==='dropping';}
 const bedroomCamera=new THREE.Vector3(6,4.5,10.5);
 const bedroomTarget=new THREE.Vector3(0,-.15,0);
@@ -224,6 +227,7 @@ const shadow = new THREE.Mesh(new THREE.PlaneGeometry(4.3,3.7),new THREE.MeshBas
 shadow.rotation.x = -Math.PI/2; shadow.position.set(.1,-1.035,.05); scene.add(shadow);
 const bedroom=createBedroom();scene.add(bedroom);
 scene.fog=new THREE.Fog(0xffffff,18,45);
+tableBody=new TableBody(geometry.attributes.position.array,{kind:selectedToy.id}).rest();tableBody.apply(mesh);
 
 function resize() {
   const { width, height } = stage.getBoundingClientRect();
@@ -434,17 +438,20 @@ function selectToy(id){
   if(id===selectedToy.id||isTransitioning())return;
   clearGestures();
   clearHandContacts();
-  const outgoing=mesh,previous=selectedToy.id;
+  const outgoing=mesh,previous=selectedToy.id,outBase=mesh.position.clone();
+  tableBody=null;
   selectedToy=toyFor(id);
   if(!toyStates.has(selectedToy.id))toyStates.set(selectedToy.id,createToy(selectedToy.id));
   ({geometry,material,mesh,rest,restNormals,physics}=toyStates.get(selectedToy.id));
-  mesh.position.set(0,0,0);scene.add(mesh);squeezeIndex=0;
+  mesh.position.set(0,0,0);mesh.quaternion.identity();mesh.scale.set(1,1,1);scene.add(mesh);squeezeIndex=0;
+  if(introPhase==='table'){tableBody=new TableBody(geometry.attributes.position.array,{kind:selectedToy.id}).rest();tableBody.apply(mesh);}
+  const inBase=mesh.position.clone();
   if(!reducedMotion){
     const direction=Object.keys(toys).indexOf(selectedToy.id)>Object.keys(toys).indexOf(previous)?1:-1;
     const distance=camera.position.length();
     const span=distance*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*camera.aspect/camera.zoom+3.0;
     const axis=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0).multiplyScalar(direction*span);
-    toySlide={outgoing,axis,elapsed:0};mesh.position.copy(axis);
+    toySlide={outgoing,outBase,inBase,axis,elapsed:0};mesh.position.copy(inBase).add(axis);
   }else scene.remove(outgoing);
   updateSettings(false);updateToyUI();needsRender=true;
   try{localStorage.setItem('squishy-choice-v1',selectedToy.id);}catch{}
@@ -453,16 +460,16 @@ function selectToy(id){
 function animateToySlide(dt){
   toySlide.elapsed+=dt;
   const pose=slidePose(toySlide.elapsed/SLIDE_SECONDS);
-  toySlide.outgoing.position.copy(toySlide.axis).multiplyScalar(pose.outgoing);
-  mesh.position.copy(toySlide.axis).multiplyScalar(pose.incoming);
+  toySlide.outgoing.position.copy(toySlide.axis).multiplyScalar(pose.outgoing).add(toySlide.outBase);
+  mesh.position.copy(toySlide.axis).multiplyScalar(pose.incoming).add(toySlide.inBase);
   if(introPhase==='table'){shadow.position.x=.1+mesh.position.x;shadow.position.z=.05+mesh.position.z;}
   needsRender=true;
   if(pose.progress===1){
-    scene.remove(toySlide.outgoing);toySlide.outgoing.position.set(0,0,0);
-    mesh.position.set(0,0,0);toySlide=null;shadow.position.x=.1;shadow.position.z=.05;updateIntroUI();
+    scene.remove(toySlide.outgoing);toySlide.outgoing.position.set(0,0,0);toySlide.outgoing.quaternion.identity();toySlide.outgoing.scale.set(1,1,1);
+    mesh.position.copy(toySlide.inBase);toySlide=null;shadow.position.x=.1;shadow.position.z=.05;updateIntroUI();
   }
 }
-let handSamples=[],handSampleTime=0;
+let handSamples=[],handSampleTime=0,handNeedsRelease=false;
 const handContacts=new Map(),handMisses=new Map();
 function clearHandContacts(){
   if(handContacts.size&&handMode.active){void sound.touch('release',.45);}
@@ -499,6 +506,10 @@ function handLoads(now){
     if(sample){dot.style.left=`${sample.x*100}%`;dot.style.top=`${sample.y*100}%`;dot.classList.toggle('gripping',sample.gripping);}
   }
   if(!usable){clearHandContacts();return empty;}
+  if(handNeedsRelease){
+    if(handSamples.some(sample=>sample.gripping))return empty;
+    handNeedsRelease=false;
+  }
   if(introPhase==='table'){
     for(const sample of handSamples)if(sample.gripping){
       setRay(rect.left+sample.x*rect.width,rect.top+sample.y*rect.height);
@@ -553,19 +564,25 @@ function updateIntroUI(){
 function pickUp(){
   if(introPhase!=='table'||isTransitioning())return;
   clearGestures();clearHandContacts();void unlockSound();void sound.touch('release',.45);
-  closeSettings();introPhase='lifting';liftElapsed=0;updateIntroUI();
+  closeSettings();liftFrom={position:mesh.position.clone(),quaternion:mesh.quaternion.clone(),scale:mesh.scale.clone()};tableBody=null;introPhase='lifting';liftElapsed=0;updateIntroUI();
   announce('Picking up your squishy.');
   if(reducedMotion)finishPickup();needsRender=true;
 }
 function finishPickup(){
-  introPhase='ready';mesh.position.set(0,0,0);bedroom.visible=false;scene.fog=null;
+  introPhase='ready';mesh.position.set(0,0,0);mesh.quaternion.identity();mesh.scale.set(1,1,1);liftFrom=null;bedroom.visible=false;scene.fog=null;
   shadow.visible=false;turnView();setMode(interactionMode);updateIntroUI();needsRender=true;
   canvas.focus({preventScroll:true});announce('Ready to squish.');
 }
 function putDown(){
   if(introPhase!=='ready'||isTransitioning())return;
   clearGestures();clearHandContacts();closeSettings();
-  dropStart={position:camera.position.clone(),zoom:camera.zoom};
+  handNeedsRelease=handMode.active;
+  dropStart={position:camera.position.clone(),zoom:camera.zoom,complete:false};
+  tableBody=new TableBody(geometry.attributes.position.array,{kind:selectedToy.id});
+  tableBody.position.copy(mesh.position);tableBody.quaternion.copy(mesh.quaternion);
+  const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0);right.y=0;right.normalize().multiplyScalar(dropIndex++%2?-1:1);
+  const momentum=selectedToy.id==='pearl'?2:1;
+  tableBody.release({velocity:[right.x*.55*momentum,0,right.z*.55*momentum],spin:[right.z*.95*momentum,.12,-right.x*.95*momentum]});
   introPhase='dropping';liftElapsed=0;
   bedroom.visible=true;bedroom.position.y=-3.4;
   shadow.visible=true;shadow.position.set(.1,-4.435,.05);shadow.material.opacity=0;
@@ -574,32 +591,35 @@ function putDown(){
   if(reducedMotion)finishDrop();
 }
 function finishDrop(){
-  introPhase='table';mesh.position.set(0,0,0);bedroom.position.y=0;
-  shadow.position.set(.1,-1.035,.05);shadow.material.opacity=1;shadow.scale.set(1,1,1);
+  introPhase='table';bedroom.position.y=0;
+  if(reducedMotion){tableBody.quaternion.identity();tableBody.rest();tableBody.apply(mesh);void sound.touch('press',.35);}
+  shadow.position.set(mesh.position.x+.1,TABLE_Y+.01,mesh.position.z+.05);shadow.material.opacity=1;shadow.scale.set(1,1,1);
   scene.fog=new THREE.Fog(0xffffff,18,45);
   view.theta=homeView.theta;view.phi=homeView.phi;view.radius=HOME_RADIUS;
   turnView();updateIntroUI();needsRender=true;dropStart=null;
-  void sound.touch('press',.42);$('pick-up').focus({preventScroll:true});announce('Back on the table.');
+  $('pick-up').focus({preventScroll:true});announce('Back on the table.');
 }
 function animateDrop(dt){
   liftElapsed+=dt;
   const pose=dropPose(liftElapsed/DROP_SECONDS);
-  bedroom.position.y=pose.roomY;mesh.position.y=pose.toyY;
-  shadow.position.y=-1.035+pose.roomY;shadow.material.opacity=pose.shadowOpacity;
+  bedroom.position.y=pose.roomY;
   camera.position.copy(dropStart.position).lerp(bedroomCamera,pose.ease);
   camera.zoom=THREE.MathUtils.lerp(dropStart.zoom,1,pose.ease);
   camera.lookAt(bedroomTarget.clone().multiplyScalar(pose.ease));
   camera.updateProjectionMatrix();camera.updateMatrixWorld();
   scene.fog.near=pose.fogNear;scene.fog.far=pose.fogFar;needsRender=true;
-  if(pose.progress===1)finishDrop();
+  if(pose.progress===1)dropStart.complete=true;
 }
 $('pick-up').addEventListener('click',pickUp);
 $('put-down').addEventListener('click',putDown);
 function animatePickup(dt){
   liftElapsed+=dt;
   const pose=pickupPose(liftElapsed/LIFT_SECONDS);
-  bedroom.position.y=pose.roomY;mesh.position.y=pose.toyY;
-  shadow.position.y=-1.035+pose.roomY;shadow.material.opacity=pose.shadowOpacity;
+  bedroom.position.y=pose.roomY;
+  mesh.position.copy(liftFrom.position).multiplyScalar(1-pose.ease);mesh.position.y+=pose.toyY;
+  mesh.quaternion.copy(liftFrom.quaternion).slerp(identityRotation,pose.ease);
+  mesh.scale.copy(liftFrom.scale).lerp(unitScale,pose.ease);
+  shadow.position.set(mesh.position.x+.1,-1.035+pose.roomY,mesh.position.z+.05);shadow.material.opacity=pose.shadowOpacity;
   const optics=cameraZoom(view.radius);
   const destination=new THREE.Vector3().setFromSphericalCoords(optics.distance,view.phi,view.theta);
   camera.position.copy(bedroomCamera).lerp(destination,pose.ease);
@@ -684,8 +704,19 @@ function animate(now) {
     geometry.attributes.position.needsUpdate=true; geometry.computeVertexNormals();
     needsRender=true;
   }
+  if(tableBody&&!toySlide&&(introPhase==='dropping'||introPhase==='table')&&(tableBody.awake||physics.activity>.00002||introPhase==='dropping')){
+    const floor=TABLE_Y+bedroom.position.y;
+    const result=tableBody.step(dt,floor);tableBody.apply(mesh);
+    const gap=Math.max(0,tableBody.position.y+tableBody.support()-floor);
+    shadow.position.set(mesh.position.x+.1,floor+.01,mesh.position.z+.05);
+    shadow.material.opacity=1/(1+gap*1.8);
+    shadow.scale.setScalar(1+gap*.22+physics.activity*.25);
+    if(result.impact)void sound.touch('press',Math.min(.65,.25+result.impact*.03));
+    needsRender=true;
+    if(dropStart?.complete)finishDrop();
+  }
   if(needsRender){
-    shadow.scale.set(1+physics.activity*.45,1+physics.activity*.45,1);
+    if(!tableBody)shadow.scale.set(1+physics.activity*.45,1+physics.activity*.45,1);
     renderer.render(scene,camera); needsRender=false;
   }
   if(introPhase==='ready'&&now-uiClock>1000){

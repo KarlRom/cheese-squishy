@@ -139,3 +139,8 @@ Hand squeeze strength is estimated from finger spacing and curl, not measured ph
 
 ## Fingertip physics (2.8.0)
 Touch, mouse, keyboard, and Hand mode now use compact fingertip contacts rather than broad palm deformation. Presses make smaller dents with independent shoulders; dragging lifts and stretches a small sticky attachment. Releasing keeps the same very slow, non-bouncing recovery. Two fingers or two camera hands act independently, without scaling the entire mesh. Camera closure strengthens the fingertip press and keeps its cursor between the index finger and thumb. The Squeeze button keeps its six styles, with smaller contact areas and greatly reduced whole-toy compression.
+
+## Gravity and rolling (2.9.0)
+Drop releases the toy under gravity with gentle sideways momentum and rotation. It lands without a bounce, compresses slightly on impact, and rolls or tips until friction stops it. Support height uses every vertex of the current deformed mesh; a sampled soft contact patch determines the supporting torque. The pearl has lower rolling resistance, while the cheese tends to settle onto a flatter face. This is a lightweight coupled approximation of rigid motion and the existing viscous mesh, not a full volumetric soft-body solver.
+
+The landing shadow follows the toy and becomes stronger as it approaches the table. Tap the moving or resting toy, or Pick up, to lift it smoothly from its actual position and orientation. Reduced motion places the toy at rest immediately. A camera pinch must be released after Drop before it can pick the toy up again. Existing fingertip dents remain intact.
