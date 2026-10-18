@@ -7,7 +7,7 @@
   <meta name="description" content="Tactile 3D cheese and pearl squishies with slow-rise deformation and soft sticky sounds.">
   <title>Cheese squishy</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=2.13.0">
+  <link rel="stylesheet" href="styles.css?v=2.14.0">
 </head>
 <body data-scene="table">
   <div class="app">
@@ -20,8 +20,8 @@
       </div>
       <div class="stage" id="stage">
         <canvas id="squishy" tabindex="0" role="img" aria-label="Interactive 3D cheese. Press and hold to dent, drag to stretch, or pinch to squeeze. Drag the white space to turn the view, or choose Rotate and pinch to zoom. Hold Space to squeeze; arrow keys move the press; R resets." aria-describedby="gesture-help"></canvas>
-        <div class="hand-panel" id="hand-panel" hidden aria-label="Hand tracking camera">
-          <div class="hand-panel-heading"><span>Hand mode</span><button id="stop-hands" aria-label="Stop camera and hand mode">×</button></div>
+        <div class="hand-panel" id="hand-panel" hidden aria-label="Hands and mouth tracking camera">
+          <div class="hand-panel-heading"><span>Camera mode</span><button id="stop-hands" aria-label="Stop camera tracking">×</button></div>
           <div class="hand-preview"><video id="hand-video" muted playsinline autoplay aria-label="Mirrored camera preview"></video><canvas id="hand-overlay" aria-hidden="true"></canvas></div>
           <p id="hand-message" role="status" aria-live="polite"></p>
         </div>
@@ -51,11 +51,11 @@
         <label for="volume">Volume <output id="volume-value" for="volume">38%</output></label>
         <input id="volume" type="range" min="0" max="100" value="38" aria-describedby="sound-hint">
         <p class="sr-only" id="sound-hint">Sticky sounds start with your first squeeze.</p>
-        <div class="hand-settings"><button id="hands-toggle" aria-pressed="false" aria-describedby="hand-hint">Enable hand mode</button><p id="hand-hint">Camera video stays on your device. No recording or microphone.</p></div>
+        <div class="hand-settings"><button id="hands-toggle" aria-pressed="false" aria-describedby="hand-hint">Enable camera mode</button><p id="hand-hint">Camera video stays on your device. No recording or microphone.</p></div>
       </aside>
     </main>
   </div>
   <noscript><p class="error">Enable JavaScript to squish.</p></noscript>
-  <script type="module" src="app.js?v=2.13.0"></script>
+  <script type="module" src="app.js?v=2.14.0"></script>
 </body>
 </html>

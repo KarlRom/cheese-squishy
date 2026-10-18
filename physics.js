@@ -1,3 +1,4 @@
+import {imprintTeeth} from './bite.js?v=2.14.0';
 /** Overdamped material-space deformation. Units: cube half-widths and seconds.
  * There is deliberately no velocity/spring integrator: release cannot oscillate.
  * Geometry, cavity walls and pigmentation all share these moving vertices.
@@ -6,13 +7,24 @@ export class SquishyMaterial {
   constructor(rest) {
     this.rest = rest;
     this.offset = new Float32Array(rest.length);
+    this.marks = new Float32Array(rest.length);
     this.target = new Float32Array(rest.length);
     this.resistance = 0.32;
     this.recovery = 0.25;
     this.activity = 0;
   }
   get recoveryTime() { return 6 + 84 * (1 - this.recovery) ** 2; }
-  reset() { this.offset.fill(0); this.target.fill(0); this.activity = 0; }
+  toothField(teeth) { const field=new Float32Array(this.rest.length);imprintTeeth(this.rest,field,teeth);return field; }
+  applyImprint(field,strength=1) {
+    for(let i=0;i<this.marks.length;i+=3){
+      for(let j=0;j<3;j++)this.marks[i+j]+=field[i+j]*strength;
+      const size=Math.hypot(this.marks[i],this.marks[i+1],this.marks[i+2]);
+      if(size>.26)for(let j=0;j<3;j++)this.marks[i+j]*=.26/size;
+    }
+  }
+  imprint(teeth,strength=1) { this.applyImprint(this.toothField(teeth),Math.max(0,Math.min(1,strength))); }
+  settle() { this.offset.fill(0); this.target.fill(0); this.activity = 0; }
+  reset() { this.marks.fill(0); this.settle(); }
   step(dt, contacts = [], pinch = null, squeeze = 0) {
     // Cap long gaps (tab switching) to avoid discontinuities on resume.
     dt = Math.min(Math.max(dt, 0), 0.05);
@@ -78,6 +90,6 @@ export class SquishyMaterial {
     return this.activity;
   }
   writePositions(out) {
-    for (let i = 0; i < out.length; i++) out[i] = this.rest[i] + this.offset[i];
+    for (let i = 0; i < out.length; i++) out[i] = this.rest[i] + this.offset[i] + this.marks[i];
   }
 }

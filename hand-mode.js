@@ -1,8 +1,9 @@
-import {HandGestures} from './hand-gestures.js?v=2.13.0';
+import {BiteGesture} from './bite.js?v=2.14.0';
+import {HandGestures} from './hand-gestures.js?v=2.14.0';
 export class HandMode{
-  constructor({video,overlay,onHands,onStatus}){
-    Object.assign(this,{video,overlay,onHands,onStatus});
-    this.gestures=new HandGestures();this.session=0;this.active=false;this.phase='off';
+  constructor({video,overlay,onHands,onMouth=()=>{},onStatus}){
+    Object.assign(this,{video,overlay,onHands,onMouth,onStatus});
+    this.bites=new BiteGesture();this.gestures=new HandGestures();this.session=0;this.active=false;this.phase='off';
   }
   status(phase,message){this.phase=phase;this.onStatus(phase,message);}
   async start(){
@@ -20,30 +21,32 @@ export class HandMode{
       this.video.srcObject=stream;await this.video.play();
       if(token!==this.session)return;
       this.status('starting','Loading hand tracking… First use may take a moment.');
-      const worker=new Worker(new URL('./hand-worker.js?v=2.13.0',document.baseURI));this.worker=worker;
+      const worker=new Worker(new URL('./hand-worker.js?v=2.14.0',document.baseURI));this.worker=worker;
       await new Promise((resolve,reject)=>{
         this.rejectInit=reject;
         const timer=setTimeout(()=>reject(new Error('load')),40000);this.initTimer=timer;
         worker.onerror=()=>reject(new Error('worker'));
         worker.onmessage=({data})=>{
-          if(data.type==='ready'){clearTimeout(timer);this.rejectInit=null;resolve();}
+          if(data.type==='ready'){clearTimeout(timer);this.rejectInit=null;this.faceAvailable=data.faceAvailable;resolve();}
           else if(data.type==='error'){clearTimeout(timer);reject(new Error('model'));}
         };
         worker.postMessage({type:'init'});
       });
       if(token!==this.session)return;
       this.active=true;this.busy=false;this.lastSent=0;this.lastVideoTime=-1;this.frameInterval=50;
-      this.status('active','Only extended fingertips interact. Curled-in fingers are ignored. Pinch and move to pull.');
+      this.status('active',this.faceAvailable?'Pinch to pull. Align your mouth with the toy, open briefly, then close to bite.':'Pinch to pull. Mouth tracking unavailable on this device.');
       worker.onerror=()=>this.fail(token,'Hand tracking stopped. You can retry or use touch.');
       worker.onmessage=({data})=>{
         if(token!==this.session)return;
         if(data.type==='error'){this.fail(token,data.message);return;}
         if(data.type==='result'){
           this.busy=false;
-          if(performance.now()-data.time>400){this.gestures.reset();this.onHands([]);return;}
+          if(this.faceAvailable&&data.faceAvailable===false){this.faceAvailable=false;this.status('active','Mouth tracking stopped. Hand and touch controls remain available.');}
+          if(performance.now()-data.time>400){this.gestures.reset();this.bites.reset();this.onMouth(null);this.onHands([]);return;}
           const hands=this.gestures.update(data.landmarks,performance.now(),this.video.videoWidth/Math.max(1,this.video.videoHeight),data.handedness);
           this.frameInterval=Math.max(50,Math.min(110,this.frameInterval*.8+(performance.now()-data.time)*.22));
-          this.draw(data.landmarks,hands);this.onHands(hands);
+          const mouth=this.bites.update(data.faceLandmarks,performance.now(),this.video.videoWidth/Math.max(1,this.video.videoHeight));
+          this.draw(data.landmarks,hands,mouth);this.onHands(hands);this.onMouth(mouth);
         }
       };
       const frame=async(now)=>{
@@ -64,7 +67,7 @@ export class HandMode{
       this.fail(token,message);
     }
   }
-  draw(landmarks,hands=[]){
+  draw(landmarks,hands=[],mouth=null){
     const canvas=this.overlay,ctx=canvas.getContext('2d');
     const w=canvas.width=320,h=canvas.height=240;ctx.clearRect(0,0,w,h);
     for(const [handIndex,points] of landmarks.entries()){
@@ -76,6 +79,10 @@ export class HandMode{
       ctx.stroke();
       for(const [fingerIndex,i] of [4,8,12,16,20].entries()){if(!hands[handIndex]?.fingers[fingerIndex]?.active)continue;ctx.beginPath();ctx.arc((1-points[i].x)*w,points[i].y*h,4,0,Math.PI*2);ctx.fillStyle=hands[handIndex]?.fingers[fingerIndex]?.pressing?ctx.strokeStyle:'#ffffff';ctx.fill();}
     }
+    if(mouth){
+      ctx.strokeStyle=mouth.armed?'#ad8150':'#c5b6a1';ctx.lineWidth=2;ctx.beginPath();
+      ctx.ellipse(mouth.x*w,mouth.y*h,Math.max(5,mouth.width*w*.5),Math.max(3,mouth.ratio*mouth.width*w*.5),0,0,Math.PI*2);ctx.stroke();
+    }
   }
   fail(token,message){if(token!==this.session)return;this.stop();this.status('error',message);}
   stop(){
@@ -83,7 +90,7 @@ export class HandMode{
     this.rejectInit?.(new Error('cancelled'));this.rejectInit=null;
     this.worker?.terminate();this.worker=null;
     this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;
-    this.video.pause();this.video.srcObject=null;this.gestures.reset();this.onHands([]);
+    this.bites.reset();this.onMouth(null);this.video.pause();this.video.srcObject=null;this.gestures.reset();this.onHands([]);
     this.overlay.getContext('2d').clearRect(0,0,this.overlay.width,this.overlay.height);
     this.status('off','Camera off.');
   }

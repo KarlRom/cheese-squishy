@@ -1,13 +1,14 @@
-import {FingerPreview} from './finger-preview.js?v=2.13.0';
+import {toothLayout} from './bite.js?v=2.14.0';
+import {FingerPreview} from './finger-preview.js?v=2.14.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.13.0';
-import {HandMode} from './hand-mode.js?v=2.13.0';
+import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.14.0';
+import {HandMode} from './hand-mode.js?v=2.14.0';
 import {createBedroom} from './room.js?v=2.5.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.13.0';
+import { SquishyMaterial } from './physics.js?v=2.14.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -366,7 +367,7 @@ function squeeze() {
 $('squeeze').addEventListener('click',squeeze);
 function reset() {
   if(isTransitioning())return;
-  clearGestures();clearHandContacts(); resetView();
+  clearGestures();clearHandContacts();clearBiteInput();handMode.bites.reset(); resetView();
   sound.silence();
   for (const id of contacts.keys()) if (canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
   contacts.clear(); heldKey=false; squeezeUntil=0;
@@ -439,7 +440,7 @@ function updateToyUI(){
 function selectToy(id){
   if(id===selectedToy.id||isTransitioning())return;
   clearGestures();
-  clearHandContacts();
+  clearHandContacts();clearBiteInput();handMode.bites.reset();
   const outgoing=mesh,previous=selectedToy.id,outBase=mesh.position.clone();
   tableBody=null;
   selectedToy=toyFor(id);
@@ -472,6 +473,8 @@ function animateToySlide(dt){
   }
 }
 let handSamples=[],handSampleTime=0,handNeedsRelease=false;
+let mouthSample=null,mouthTime=0,pendingBite=false,biteTarget=null,bitePulse=null,mouthHover=null,mouthProbeTime=0;
+function clearBiteInput(){mouthSample=null;pendingBite=false;biteTarget=null;bitePulse=null;mouthHover=null;mouthProbeTime=0;}
 const handContacts=new Map(),fingerHits=new Map();
 let fingerMarkers=[],fingerProbeTurn=0;
 function clearHandContacts(){
@@ -479,11 +482,12 @@ function clearHandContacts(){
   handContacts.clear();fingerHits.clear();
 }
 const handMode=new HandMode({video:$('hand-video'),overlay:$('hand-overlay'),
+  onMouth:mouth=>{if(!mouth){clearBiteInput();return;}mouthSample=mouth;mouthTime=performance.now();pendingBite=pendingBite||mouth.bite;},
   onHands:hands=>{handSamples=hands;handSampleTime=performance.now();if(!hands.length)clearHandContacts();},
   onStatus:(phase,message)=>{
     $('hand-panel').hidden=phase==='off';$('hand-message').textContent=message;
     $('hands-toggle').setAttribute('aria-pressed',String(phase==='starting'||phase==='active'));
-    $('hands-toggle').textContent=phase==='starting'?'Cancel hand mode':phase==='active'?'Turn hand mode off':'Enable hand mode';
+    $('hands-toggle').textContent=phase==='starting'?'Cancel camera mode':phase==='active'?'Turn camera off':'Enable camera mode';
     $('hand-panel').dataset.state=phase;
     $('hand-hint').textContent=phase==='error'?message:'Camera video stays on your device. No recording or microphone.';
     if(phase!=='active'){
@@ -573,6 +577,65 @@ function handLoads(now){
     }
   }
   return {contacts:loads};
+}
+// Surface projection is tested only when a new camera result arrives.
+function mouthHit(x,y){
+  setRay(x,y);const hit=raycaster.intersectObject(mesh)[0];if(!hit)return null;
+  const triangle=[hit.face.a,hit.face.b,hit.face.c];
+  const bary=THREE.Triangle.getBarycoord(mesh.worldToLocal(hit.point.clone()),
+    ...triangle.map(i=>new THREE.Vector3().fromBufferAttribute(geometry.attributes.position,i)),new THREE.Vector3()).toArray();
+  const point=new THREE.Vector3(),normal=new THREE.Vector3();
+  triangle.forEach((i,j)=>{point.addScaledVector(new THREE.Vector3().fromArray(rest,i*3),bary[j]);normal.addScaledVector(new THREE.Vector3().fromArray(restNormals,i*3),bary[j]);});
+  return {triangle,bary,point:point.toArray(),normal:normal.normalize().toArray()};
+}
+function biteLoads(now){
+  if(!handMode.active||!mouthSample||now-mouthTime>300||introPhase!=='ready'||isTransitioning()||interactionMode!=='squish'||contacts.size||orbitPointers.size){
+    biteTarget=null;pendingBite=false;bitePulse=null;mouthHover=null;return [];
+  }
+  const rect=canvas.getBoundingClientRect(),mouth=mouthSample;
+  const x=rect.left+mouth.x*rect.width,y=rect.top+mouth.y*rect.height;
+  if(mouthProbeTime!==mouthTime){
+    mouthProbeTime=mouthTime;mesh.updateMatrixWorld();
+    const hit=mouthHit(x,y);mouthHover=hit;
+    if(mouth.armed&&hit)biteTarget={...hit,x:mouth.x,y:mouth.y};
+    if(!hit||biteTarget&&Math.hypot(mouth.x-biteTarget.x,mouth.y-biteTarget.y)>.1)biteTarget=null;
+    if(pendingBite){
+      pendingBite=false;
+      if(hit&&biteTarget){
+        // Match the mouth's apparent width, but bound the bite on the toy.
+        const worldPerPixel=2*camera.position.distanceTo(mesh.position)*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))/(rect.height*camera.zoom);
+        const width=THREE.MathUtils.clamp(mouth.width*rect.width*worldPerPixel,.55,1.1);
+        const teeth=[];
+        for(const tooth of toothLayout(width)){
+          const ca=Math.cos(mouth.angle),sa=Math.sin(mouth.angle);
+          const px=x+(tooth.x*ca-tooth.y*sa)/worldPerPixel,py=y+(tooth.x*sa+tooth.y*ca)/worldPerPixel;
+          const surface=mouthHit(px,py);if(!surface)continue;
+          const normal=new THREE.Vector3(...surface.normal);
+          const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0).multiplyScalar(ca)
+            .addScaledVector(new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1),-sa).transformDirection(mesh.matrixWorld.clone().invert());
+          right.addScaledVector(normal,-right.dot(normal)).normalize();
+          if(right.lengthSq()<.5)continue;
+          const up=new THREE.Vector3().crossVectors(normal,right).normalize();
+          teeth.push({...tooth,...surface,right:right.toArray(),up:up.toArray()});
+        }
+        if(teeth.length>=4){
+          bitePulse={started:now,teeth,field:physics.toothField(teeth),applied:0};needsRender=true;void sound.touch('press',.65);
+          announce('Bite impression. Reset clears teeth marks.');
+        }
+      }
+      biteTarget=null;
+    }
+    if(!mouth.armed&&!mouth.bite)biteTarget=null;
+  }
+  if(mouthHover)fingerMarkers.push({key:'mouth',handId:0,attachment:mouthHover,pressing:!!biteTarget});
+  if(!bitePulse)return [];
+  const progress=(now-bitePulse.started)/480;
+  if(progress>=1){bitePulse=null;void sound.touch('release',.45);return [];}
+  const t=Math.min(1,Math.max(0,progress/.4)),impression=t*t*(3-2*t);
+  physics.applyImprint(bitePulse.field,impression-bitePulse.applied);bitePulse.applied=impression;
+  const strength=Math.sin(Math.PI*Math.max(0,progress));
+  return bitePulse.teeth.map(tooth=>({point:tooth.point,normal:tooth.normal,radius:.24,depth:.23*strength,
+    drag:tooth.up.map(v=>v*Math.sign(tooth.y)*.09*strength),scrunch:true}));
 }
 function drawFingerPreviews(){
   fingerPreview.begin();
@@ -711,7 +774,7 @@ function animate(now) {
     const held=Math.min((now-c.started)/1000,1.8);
     c.depth=.13+.25*(1-Math.exp(-held*2.4))+Math.max(0,(c.pressure||.5)-.5)*.12;
   }
-  const hands=handLoads(now);active.push(...hands.contacts);
+  const hands=handLoads(now);active.push(...hands.contacts,...biteLoads(now));
   const keyboardAuto=now<squeezeUntil||heldKey;
   if(keyboardAuto)active.push({point:keyboardPoint,normal:[0,0,1],drag:[0,-.10,0],radius:.23,depth:.36});
   if(buttonGesture&&now-buttonGesture.started>=buttonGesture.profile.duration)buttonGesture=null;
@@ -731,7 +794,7 @@ function animate(now) {
   sound.update(dt,soundLoad,effectivePinch?.amount||0);
   if(active.length||effectivePinch||physics.activity>.00002) {
     physics.step(dt,balanceContacts(active.map(fingerContact)),effectivePinch,autoSquash);
-    if(!active.length&&!effectivePinch&&physics.activity<=.00002)physics.reset();
+    if(!active.length&&!effectivePinch&&physics.activity<=.00002)physics.settle();
     physics.writePositions(geometry.attributes.position.array);
     geometry.attributes.position.needsUpdate=true; geometry.computeVertexNormals();
     needsRender=true;
