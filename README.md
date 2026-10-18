@@ -245,3 +245,6 @@ Local stretching gradually fades tooth impressions in the affected patch over se
 
 ## Tamer cheese pulls (2.28.0)
 Pointer and camera strands now use roughly half the previous extension, a three-half-width travel cap, and gentler loading. Finger-thick shafts, slow release, and stretch-smoothed bite marks are retained.
+
+## Compact tapered pulls (2.29.0)
+The cylindrical shaft is replaced with a continuously narrowing, slightly flattened stretched patch, a broader rooted connection, and a smaller rounded grip. Extension gains are reduced again with a 1.6-half-width cap. Slow release and local bite-mark smoothing remain. Shape checks cover taper, finite normals and bounded travel; visual realism still requires device review.
