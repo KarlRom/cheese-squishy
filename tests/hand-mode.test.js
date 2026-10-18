@@ -65,8 +65,9 @@ test('closed-mouth preview is absent and recenter clears both gesture states wit
   try{
     await h.mode.start();
     h.mode.draw([],[],{visible:false}); // Context has no ellipse; drawing here would fail.
+    let cleared=0;h.mode.onReset=()=>cleared++;
     h.mode.gestures.slots=[{id:12}];h.mode.bites.armed=true;
-    h.mode.recenter();assert.deepEqual(h.mode.gestures.slots,[]);assert.equal(h.mode.bites.armed,false);
+    h.mode.recenter();assert.equal(cleared,1);assert.deepEqual(h.mode.gestures.slots,[]);assert.equal(h.mode.bites.armed,false);
     assert.equal(h.mode.active,true);assert.equal(h.workers[0].terminated,false);
   }finally{h.restore();}
 });

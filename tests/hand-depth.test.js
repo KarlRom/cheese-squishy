@@ -33,9 +33,9 @@ test('one-axis foreshortening from turning the hand is rejected',()=>{
 });
 test('tracking loss, clipped palms and camera aspect changes reset depth without a jump',()=>{
   const close=run(1.4,true,run(1,true),750);
-  const lost=trackHandDepth(size(.7),close,2000,.05,true);
+  const lost=trackHandDepth(size(.7),close,2500,.05,true);
   assert.equal(lost.push,0);assert.equal(lost.pull,0);
-  const clipped=trackHandDepth({...size(1.7),visible:false},lost,2050,.05,true);
+  const clipped=trackHandDepth({...size(1.7),visible:false},lost,2550,.05,true);
   assert.equal(clipped.valid,false);assert.equal(clipped.push,0);
   const aspect=trackHandDepth(size(1.5),close,1500,.05,true,.75);
   assert.equal(aspect.push,0);assert.equal(aspect.pull,0);

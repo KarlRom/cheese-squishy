@@ -9,16 +9,17 @@ export function fingerContact(contact){
   }
   let length=Math.hypot(...drag);
   if(length>1.08){for(let i=0;i<3;i++)drag[i]*=1.08/length;length=1.08;}
+  const creep=Math.max(0,Math.min(1,contact.creep||0));
   const stretch=contact.scrunch?0:Math.max(0,length-.08);
-  const lift=contact.depthControlled?Math.max(0,Math.min(.36,contact.cameraPull||0)):0;
-  const thickness=1-Math.exp(-Math.max(stretch,lift*2.5)/.28);
-  const travel=contact.scrunch?length:Math.min(length,.40*Math.tanh(length/.55));
+  const lift=contact.depthControlled?Math.max(0,Math.min(.54,(contact.cameraPull||0)*(1+creep*.5))):0;
+  const thickness=Math.max(creep*.8,1-Math.exp(-Math.max(stretch,lift*2.5)/.28));
+  const travel=contact.scrunch?length:Math.min(length,(.40+creep*.20)*Math.tanh(length/(.55+creep*.10)));
   const dragScale=length>0?travel/length:1;
   return {...contact,localized:true,thickness,
     drag:drag.map(v=>v*dragScale*FINGER_STRENGTH),
-    radius:Math.max(.17,Math.min(.28,contact.radius??.22))+(contact.scrunch?Math.min(.06,length*.055):thickness*.20),
-    depth:Math.min(.46,Math.max(0,contact.depth??.34))*(1-Math.min(contact.scrunch ? .68 : .82,length*(contact.scrunch ? .65 : .82)))*FINGER_STRENGTH,
-    pull:contact.scrunch?0:(contact.depthControlled?lift:.22*Math.tanh(stretch*1.8))*FINGER_STRENGTH};
+    radius:Math.max(.17,Math.min(.28,contact.radius??.22))+(contact.scrunch?Math.min(.06,length*.055):thickness*.20)+creep*.14,
+    depth:Math.min(.46+creep*.16,Math.max(0,contact.depth??.34)*(1+creep*.40))*(1-Math.min(contact.scrunch ? .68 : .82,length*(contact.scrunch ? .65 : .82)))*FINGER_STRENGTH,
+    pull:contact.scrunch?0:(contact.depthControlled?lift:(.22+creep*.10)*Math.tanh(stretch*1.8))*FINGER_STRENGTH};
 }
 
 // Overlapping fingers share a pressure budget. Separated fingertips retain

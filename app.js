@@ -1,15 +1,16 @@
-import {LightingRig,lightingFor} from './lighting.js?v=2.19.0';
-import {toothLayout} from './bite.js?v=2.19.0';
-import {FingerPreview} from './finger-preview.js?v=2.19.0';
+import {advanceCreep,retainMissingGrip} from './grip.js?v=2.20.0';
+import {LightingRig,lightingFor} from './lighting.js?v=2.20.0';
+import {toothLayout} from './bite.js?v=2.20.0';
+import {FingerPreview} from './finger-preview.js?v=2.20.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.19.0';
-import {HandMode} from './hand-mode.js?v=2.19.0';
-import {createBedroom} from './room.js?v=2.19.0';
+import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.20.0';
+import {HandMode} from './hand-mode.js?v=2.20.0';
+import {createBedroom} from './room.js?v=2.20.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.19.0';
+import { SquishyMaterial } from './physics.js?v=2.20.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -491,8 +492,9 @@ function clearHandContacts(){
 }
 const handMode=new HandMode({video:$('hand-video'),overlay:$('hand-overlay'),
   onFeedback:message=>{const hint=$('tracking-feedback');if(hint.textContent!==message)hint.textContent=message;},
+  onReset:()=>{clearHandContacts();clearBiteInput();},
   onMouth:mouth=>{if(!mouth){clearBiteInput();return;}mouthSample=mouth;mouthTime=performance.now();pendingBite=pendingBite||mouth.bite;},
-  onHands:hands=>{handSamples=hands;handSampleTime=performance.now();if(!hands.length)clearHandContacts();},
+  onHands:hands=>{handSamples=hands;handSampleTime=performance.now();},
   onStatus:(phase,message)=>{
     $('hand-panel').hidden=phase==='off';$('hand-message').textContent=message;
     $('hands-toggle').setAttribute('aria-pressed',String(phase==='starting'||phase==='active'));
@@ -511,7 +513,7 @@ $('hands-toggle').addEventListener('click',()=>{
 });
 $('stop-hands').addEventListener('click',()=>handMode.stop());
 $('recenter-hands').addEventListener('click',()=>{handMode.recenter();clearHandContacts();clearBiteInput();handNeedsRelease=false;});
-function handLoads(now){
+function handLoads(now,dt){
   const empty={contacts:[]};fingerMarkers=[];
   const fresh=handMode.active&&now-handSampleTime<550;
   if(!fresh||isTransitioning()){clearHandContacts();return empty;}
@@ -562,7 +564,7 @@ function handLoads(now){
         start:attachment.hit.clone(),plane:new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),attachment.hit)};
       handContacts.set(key,contact);pressed++;
     }
-    ids.add(key);
+    ids.add(key);contact.missingSince=null;contact.palm={x:hand.palm.x,y:hand.palm.y};
     const pinching=hand.pinched&&(finger.tip===4||finger.tip===8);
     const retreat=pinching?hand.depth.pull:0;
     const pressDepth=pinching?.07+hand.depth.push*.34:.10+finger.strength*.32;
@@ -572,12 +574,18 @@ function handLoads(now){
     if(point){
       contact.drag=point.sub(contact.start).clampLength(0,pinching?1.2:.075).multiplyScalar(pinching?.90:1).toArray();
     }
+    contact.creep=advanceCreep(contact.creep,dt,contact);
     const marker=fingerMarkers[fingerMarkers.length-1];marker.attachment=contact;marker.pressing=true;
   }
-  for(const key of handContacts.keys())if(!ids.has(key)){handContacts.delete(key);released++;}
+  for(const [key,contact] of handContacts)if(!ids.has(key)){
+    if(usable&&!waitingForRelease&&retainMissingGrip(contact,handSamples,now,handSampleTime)){
+      // Keep the last confirmed load; missing frames do not add creep or points.
+      fingerMarkers.push({key,handId:contact.handId,attachment:contact,pressing:true});
+    }else{handContacts.delete(key);released++;}
+  }
   if(pressed)void sound.touch('press',.55);else if(released)void sound.touch('release',.45);
   if(tablePick){fingerMarkers=[];pickUp();return empty;}
-  const loads=[...handContacts.values()];
+  const rawLoads=[...handContacts.values()],loads=[...rawLoads];
   for(const hand of handSamples){
     if(!hand.closed)continue;
     const group=loads.filter(c=>c.handId===hand.id);
@@ -589,6 +597,12 @@ function handLoads(now){
       if(c.handId===hand.id&&!(hand.pinched&&(c.tip===4||c.tip===8)))
         loads[i]={...scrunchContact(c,center,hand.scrunchStrength),depth:Math.max(c.depth,.12+hand.scrunchStrength*.28)};
     }
+  }
+  for(let i=0;i<rawLoads.length;i++){
+    const contact=rawLoads[i],load=loads[i];
+    if(contact.missingSince!==null&&contact.lastLoad)loads[i]=contact.lastLoad;
+    else contact.lastLoad={point:load.point,normal:load.normal,drag:load.drag,radius:load.radius,depth:load.depth,
+      creep:load.creep,scrunch:load.scrunch,depthControlled:load.depthControlled,cameraPull:load.cameraPull};
   }
   return {contacts:loads};
 }
@@ -792,8 +806,9 @@ function animate(now) {
   for(const c of active) {
     const held=Math.min((now-c.started)/1000,1.8);
     c.depth=.13+.25*(1-Math.exp(-held*2.4))+Math.max(0,(c.pressure||.5)-.5)*.12;
+    c.creep=advanceCreep(c.creep,dt,c);
   }
-  const hands=handLoads(now);active.push(...hands.contacts,...biteLoads(now));
+  const hands=handLoads(now,dt);active.push(...hands.contacts,...biteLoads(now));
   const keyboardAuto=now<squeezeUntil||heldKey;
   if(keyboardAuto)active.push({point:keyboardPoint,normal:[0,0,1],drag:[0,-.10,0],radius:.23,depth:.36});
   if(buttonGesture&&now-buttonGesture.started>=buttonGesture.profile.duration)buttonGesture=null;

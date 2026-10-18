@@ -8,7 +8,7 @@ function shift(size,reference){
 export function trackHandDepth(size,previous,time,dt,pinched,aspect=4/3){
   const valid=size&&size.visible&&size.width>.025&&size.length>.025&&Number.isFinite(size.width+size.length);
   if(!valid)return {seen:time,push:0,pull:0,pushing:false,valid:false};
-  const fresh=!previous?.valid||time-previous.seen>500||Math.abs((previous.aspect??aspect)-aspect)>.01;
+  const fresh=!previous?.valid||time-previous.seen>850||Math.abs((previous.aspect??aspect)-aspect)>.01;
   const reference=fresh?copy(size):previous.reference;
   const pinchReference=pinched?(!fresh&&previous.pinched?previous.pinchReference:copy(size)):null;
   const approach=shift(size,reference),retreat=pinchReference?shift(size,pinchReference):null;

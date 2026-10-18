@@ -33,7 +33,8 @@ test('pinch hysteresis filters threshold jitter and releases when fingers open',
   points[4]={x:points[8].x+.42*palm/(4/3),y:points[8].y};
   assert.equal(tracker.update([points],60)[0].pinched,true);
   points[4]={x:points[8].x+.60*palm/(4/3),y:points[8].y};
-  assert.equal(tracker.update([points],120)[0].pinched,false);
+  assert.equal(tracker.update([points],120)[0].pinched,true);
+  assert.equal(tracker.update([points],320)[0].pinched,false);
 });
 test('two hands keep identity when detector order changes; loss clears all grips',()=>{
   const tracker=new HandGestures(),a=hand({dx:-.2}),b=hand({dx:.2});
@@ -224,4 +225,16 @@ test('slow continuous camera frames preserve hand identity and the depth referen
 test('a valid second hand retains its source index if the first hand is rejected',()=>{
   const output=new HandGestures().update([hand({scale:.01}),hand({dx:.1})],0);
   assert.equal(output.length,1);assert.equal(output[0].sourceIndex,1);
+});
+
+test('a brief pinch-span glitch preserves the original retreat reference through recovery',()=>{
+  const tracker=new HandGestures();tracker.update([hand({pinch:true})],0);
+  const away=tracker.update([hand({pinch:true,scale:.8})],100)[0];
+  const reference=away.depth.pinchReference;
+  const wobble=hand({pinch:true,scale:.8});
+  const palm=Math.max(Math.hypot((wobble[5].x-wobble[17].x)*4/3,wobble[5].y-wobble[17].y),Math.hypot((wobble[0].x-wobble[9].x)*4/3,wobble[0].y-wobble[9].y));
+  wobble[4]={x:wobble[8].x+.6*palm/(4/3),y:wobble[8].y,z:0};
+  const uncertain=tracker.update([wobble],150)[0];assert.equal(uncertain.pinched,true);
+  const recovered=tracker.update([hand({pinch:true,scale:.8})],230)[0];
+  assert.equal(recovered.pinched,true);assert.deepEqual(recovered.depth.pinchReference,reference);assert.ok(recovered.depth.pull>0);
 });

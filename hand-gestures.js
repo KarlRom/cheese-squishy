@@ -1,4 +1,5 @@
-import {trackHandDepth} from './hand-depth.js?v=2.18.0';
+import {pinchContinuity} from './grip.js?v=2.20.0';
+import {trackHandDepth} from './hand-depth.js?v=2.20.0';
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const names=['Thumb','Index','Middle','Ring','Little'];
 const tips=[4,8,12,16,20],mcps=[2,5,9,13,17],pips=[3,6,10,14,18];
@@ -67,7 +68,7 @@ export class HandGestures{
       const label=handedness[i]?.[0];
       return {...hand,sourceIndex:i,label:label?.score>.8?label.categoryName:null};
     }).filter(Boolean);
-    const previous=this.slots.filter(slot=>time-slot.seen<600);
+    const previous=this.slots.filter(slot=>time-slot.seen<900);
     const cost=(hand,slot)=>Math.hypot(hand.palm.x-slot.palm.x,hand.palm.y-slot.palm.y)+(hand.label&&slot.label&&hand.label!==slot.label ? .65 : 0);
     let order=previous;
     if(hands.length===2&&previous.length===2&&cost(hands[0],previous[1])+cost(hands[1],previous[0])<cost(hands[0],previous[0])+cost(hands[1],previous[1]))order=[previous[1],previous[0]];
@@ -78,7 +79,9 @@ export class HandGestures{
       const candidate=order[i],old=candidate&&cost(hand,candidate)<.55?candidate:null;
       // Folded fingertips are not contact candidates. Reopen farther before
       // restoring a target so a partly hidden finger cannot flicker on/off.
-      const pinchCandidate=hand.pinchRatio<(old?.pinched ? .52 : .34)&&!hand.fingers[0].inPalm&&!hand.fingers[1].inPalm;
+      const pinchState=pinchContinuity(hand.pinchRatio,!hand.fingers[0].inPalm&&!hand.fingers[1].inPalm,
+        old?{pinched:old.pinched,uncertainSince:old.pinchUncertainSince}:null,time);
+      const pinchCandidate=pinchState.pinched;
       const available=hand.fingers.map((finger,j)=>{
         const before=old?.fingers?.[j];
         const pinchTip=j<2&&pinchCandidate;
@@ -88,7 +91,7 @@ export class HandGestures{
         const active=safe&&(before?.active!==false||clearFrames>=2);
         return {...finger,active,clearFrames};
       });
-      const pinched=available[0].active&&available[1].active&&hand.pinchRatio<(old?.pinched ? .52 : .34);
+      const pinched=available[0].active&&available[1].active&&pinchCandidate;
       const depth=trackHandDepth(hand.size,old?.depth,time,dt,pinched,aspect);
       // A loose multi-finger curl is enough; an isolated bent finger still presses alone.
       const curled=available.slice(1).filter(f=>f.active&&f.curl>(old?.closed ? .18 : .25)).length;
@@ -104,7 +107,7 @@ export class HandGestures{
           strength:pressing?Math.max(j<2&&pinched?clamp(1-hand.pinchRatio/.65):0,finger.curl,closed?scrunchStrength:0,depth.push):0};
       });
       return {id:old?.id??this.nextId++,sourceIndex:hand.sourceIndex,label:hand.label||old?.label,palm:hand.palm,seen:time,...point,
-        x:clamp(point.x),y:clamp(point.y),pinched,closed,scrunchStrength,fingers,depth,
+        x:clamp(point.x),y:clamp(point.y),pinched,pinchUncertainSince:pinchState.uncertainSince,closed,scrunchStrength,fingers,depth,
         gripping:fingers.some(f=>f.pressing),strength:Math.max(0,...fingers.map(f=>f.strength))};
     });
     this.slots=[...output,...previous.filter(old=>!output.some(slot=>slot.id===old.id))].slice(0,2);

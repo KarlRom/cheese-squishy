@@ -1,8 +1,8 @@
-import {BiteGesture} from './bite.js?v=2.18.0';
-import {HandGestures} from './hand-gestures.js?v=2.18.0';
+import {BiteGesture} from './bite.js?v=2.20.0';
+import {HandGestures} from './hand-gestures.js?v=2.20.0';
 export class HandMode{
-  constructor({video,overlay,onHands,onMouth=()=>{},onFeedback=()=>{},onStatus}){
-    Object.assign(this,{video,overlay,onHands,onMouth,onFeedback,onStatus});
+  constructor({video,overlay,onHands,onMouth=()=>{},onFeedback=()=>{},onReset=()=>{},onStatus}){
+    Object.assign(this,{video,overlay,onHands,onMouth,onFeedback,onReset,onStatus});
     this.bites=new BiteGesture();this.gestures=new HandGestures();this.session=0;this.active=false;this.phase='off';
   }
   status(phase,message){this.phase=phase;this.onStatus(phase,message);}
@@ -21,7 +21,7 @@ export class HandMode{
       this.video.srcObject=stream;await this.video.play();
       if(token!==this.session)return;
       this.status('starting','Loading hand tracking… First use may take a moment.');
-      const worker=new Worker(new URL('./hand-worker.js?v=2.18.0',document.baseURI));this.worker=worker;
+      const worker=new Worker(new URL('./hand-worker.js?v=2.20.0',document.baseURI));this.worker=worker;
       await new Promise((resolve,reject)=>{
         this.rejectInit=reject;
         const timer=setTimeout(()=>reject(new Error('load')),40000);this.initTimer=timer;
@@ -93,7 +93,7 @@ export class HandMode{
     }
   }
   recenter(){
-    this.gestures.reset();this.bites.reset();this.lastMouth=null;this.onHands([]);this.onMouth(null);
+    this.onReset();this.gestures.reset();this.bites.reset();this.lastMouth=null;this.onHands([]);this.onMouth(null);
     this.onFeedback('Hands recentered. Move closer to press.');
   }
   fail(token,message){if(token!==this.session)return;this.stop();this.status('error',message);}
