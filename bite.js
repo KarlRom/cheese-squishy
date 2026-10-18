@@ -6,31 +6,50 @@ export function mouthPose(points,aspect=4/3){
   if([left,right,upper,lower].some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)))return null;
   const width=Math.hypot((right.x-left.x)*aspect,right.y-left.y);
   if(width<.035)return null;
-  return {x:1-(upper.x+lower.x)/2,y:(upper.y+lower.y)/2,
+  const [chin,nose,cheekA,cheekB]=[152,2,234,454].map(i=>points[i]);
+  const faceWidth=cheekA&&cheekB?Math.hypot((cheekA.x-cheekB.x)*aspect,cheekA.y-cheekB.y):0;
+  const chinRatio=chin&&nose&&faceWidth>.06?Math.hypot((chin.x-nose.x)*aspect,chin.y-nose.y)/faceWidth:null;
+  return {chinRatio,x:1-(upper.x+lower.x)/2,y:(upper.y+lower.y)/2,
     width:width/aspect,ratio:Math.hypot((upper.x-lower.x)*aspect,upper.y-lower.y)/width,
     angle:Math.atan2(right.y-left.y,-(right.x-left.x)*aspect)};
 }
 export class BiteGesture{
   constructor(){this.reset();}
-  reset(){this.openSince=null;this.armed=false;this.lastTime=null;this.cooldown=0;this.origin=null;}
-  update(points,time,aspect){
+  reset(){this.openSince=null;this.armed=false;this.lastTime=null;this.cooldown=0;this.origin=null;this.peak=0;this.peakChin=null;this.jawRest=null;}
+  update(points,time,aspect,blendshapes=[]){
     const mouth=mouthPose(points,aspect);
-    if(!mouth||this.lastTime!==null&&time-this.lastTime>350){this.openSince=null;this.armed=false;this.origin=null;}
+    const categories=blendshapes?.categories||blendshapes||[];
+    const jaw=categories.find(c=>c.categoryName==='jawOpen')?.score;
+    // No lip-only fallback: jaw evidence is required to register a bite.
+    if(!mouth||!Number.isFinite(jaw)||this.lastTime!==null&&time-this.lastTime>500){
+      this.openSince=null;this.armed=false;this.origin=null;this.peak=0;this.peakChin=null;
+    }
     this.lastTime=time;
     if(!mouth)return null;
-    let bite=false;
-    if(time<this.cooldown)return {...mouth,armed:false,bite:false};
-    if(this.origin&&Math.hypot(mouth.x-this.origin.x,mouth.y-this.origin.y)>.12){this.openSince=null;this.armed=false;this.origin=null;}
-    if(mouth.ratio>.30){
-      if(this.openSince===null){this.openSince=time;this.origin=mouth;}
-      this.armed=time-this.openSince>=120;
-    }else if(mouth.ratio<.12){
-      bite=this.armed&&time-this.openSince<2000;
-      this.openSince=null;this.armed=false;this.origin=null;
-      if(bite)this.cooldown=time+900;
+    if(!this.armed&&Number.isFinite(jaw)&&jaw<.24&&mouth.ratio<.045)this.jawRest=Math.min(this.jawRest??jaw,jaw);
+    const visible=Number.isFinite(jaw)&&jaw>Math.max(.18,(this.jawRest??0)+.08)&&mouth.ratio>.065;
+    const output=bite=>({...mouth,visible,armed:this.armed,bite,jaw:jaw??0});
+    if(!Number.isFinite(jaw)||time<this.cooldown)return output(false);
+    if(this.origin&&Math.hypot(mouth.x-this.origin.x,mouth.y-this.origin.y)>.15){
+      this.openSince=null;this.armed=false;this.origin=null;this.peak=0;this.peakChin=null;
     }
-    if(this.openSince!==null&&time-this.openSince>=2000){this.armed=false;}
-    return {...mouth,armed:this.armed,bite};
+    let bite=false;
+    if(jaw>Math.max(.28,(this.jawRest??0)+.18)&&mouth.ratio>.09){
+      if(this.openSince===null){this.openSince=time;this.origin=mouth;}
+      this.peak=Math.max(this.peak,jaw);
+      if(Number.isFinite(mouth.chinRatio))this.peakChin=Math.max(this.peakChin??0,mouth.chinRatio);
+      this.armed=time-this.openSince>=100&&time-this.openSince<2200;
+    }
+    // A large jaw closing motion can bite even with lips parted / teeth visible.
+    // Lip closure with a still-open jaw cannot trigger this branch.
+    if(this.armed&&jaw<Math.max(.14,Math.min(.23,(this.jawRest??.04)+.07))&&this.peak-jaw>.18){
+      const chinClosed=this.peakChin===null||!Number.isFinite(mouth.chinRatio)||this.peakChin-mouth.chinRatio>this.peakChin*.025;
+      bite=time-this.openSince<2200&&chinClosed;this.armed=false;this.openSince=null;this.origin=null;this.peak=0;this.peakChin=null;
+      if(bite)this.cooldown=time+800;
+    }else if(this.openSince!==null&&time-this.openSince>=2200){
+      this.armed=false;this.openSince=null;this.origin=null;this.peak=0;this.peakChin=null;
+    }else if(!this.armed&&jaw<.12){this.openSince=null;this.origin=null;this.peak=0;this.peakChin=null;}
+    return output(bite);
   }
 }
 // Two shallow dental arches with wider front incisors and smaller side teeth.

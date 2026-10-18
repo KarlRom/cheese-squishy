@@ -200,3 +200,14 @@ This is relative apparent-size inference from one camera, not measured distance 
 
 ## Larger oak desk (2.17.1)
 The main desk is about 35% wider and deeper, with a 2.5× thicker top and sturdier repositioned legs. Its upper surface stays at the same height so pickup, shadows, drop and rolling contact remain aligned.
+
+## Jaw-based bites and more usable hand tracking (2.18.0)
+Bites now require the Face Landmarker jaw-opening expression channel rather than lip gap alone, corroborated by lower-face/chin contraction when available. Resting jaw bias calibrates from relaxed closed-mouth frames. Open the jaw briefly, then bring the teeth together; the lips may remain parted. Closing just the lips while holding the jaw open does not trigger a bite. The mouth target and camera mouth outline are hidden when the jaw is closed. The closing frame may still complete an already armed bite. This estimates jaw closure; the model does not detect tooth surfaces or verify actual dental contact. Missing jaw expressions disable bites instead of falling back to lip closure.
+
+Hands run on every submitted frame, while face/expression inference is rate-limited to at most one update per 120ms. The single-frame queue is preserved; intermediate hand-only results do not erase jaw state. Hand acquisition thresholds are closer to upstream defaults, and hand identity/depth continuity tolerates slower frames. Capture timestamps drive gesture timing. Late frames are discarded with feedback. These changes protect cadence but actual frame rate depends on hardware.
+
+Folded tips inside the actual projected palm remain excluded. A polygon follows the palm outline, avoiding the old broad rectangular mask. Deliberate curved thumb/index pinches outside the palm are eligible; ordinary folded/hooked fingers remain filtered. Two clear observations restore a previously hidden fingertip, reducing the prior three-frame delay. The overlay uses the source hand index, so rejecting one hand cannot hide the other hand's preview.
+
+Camera preview shows hand/fingertip counts. Recenter hands resets both gesture references while leaving camera permission and the worker running; hold a comfortable neutral pose, tap it, then move closer to press or pinch and retreat to pull. Camera frames and facial expressions remain local, without recording, uploads or identity recognition.
+
+101 automated checks exercise jaw versus lip closure, closed-mouth previews, throttled face updates, pinch eligibility, slow-frame continuity and recentering, along with the existing physics. These are synthetic and mocked pipeline checks; real-camera accuracy, tooth-contact timing and iPhone performance still require device testing. Upstream expression channels: https://ai.google.dev/edge/api/mediapipe/python/mp/tasks/vision/drawing_styles/face_landmarker/Blendshapes.

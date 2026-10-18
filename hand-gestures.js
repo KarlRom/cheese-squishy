@@ -1,4 +1,4 @@
-import {trackHandDepth} from './hand-depth.js?v=2.17.0';
+import {trackHandDepth} from './hand-depth.js?v=2.18.0';
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const names=['Thumb','Index','Middle','Ring','Little'];
 const tips=[4,8,12,16,20],mcps=[2,5,9,13,17],pips=[3,6,10,14,18];
@@ -15,20 +15,20 @@ function jointCurl(a,b,c,aspect){
 // A depth guess must not turn a fingertip projected inside the palm into a touch.
 export function fingerShape(points,index,aspect=4/3){
   const tip=tips[index],mcp=mcps[index],pip=pips[index],dip=index===0?3:tip-1;
-  const wrist=points[0],base=points[9];
-  const ax=(base.x-wrist.x)*aspect,ay=base.y-wrist.y;
-  const palmLength=Math.max(.0001,Math.hypot(ax,ay));
-  const tx=(points[tip].x-wrist.x)*aspect,ty=points[tip].y-wrist.y;
-  const along=(tx*ax+ty*ay)/(palmLength*palmLength);
-  const side=Math.abs(tx*ay-ty*ax)/(palmLength*palmLength);
-  const palmWidth=distance(points[5],points[17],aspect)/palmLength;
-  const inPalm=along>-.08&&along<1.10&&side<palmWidth*.58;
+  // Actual projected palm outline, rather than a wide rectangular exclusion zone.
+  const outline=[0,5,9,13,17].map(i=>points[i]),target=points[tip];
+  let inPalm=false;
+  for(let i=0,j=outline.length-1;i<outline.length;j=i++){
+    const a=outline[i],b=outline[j];
+    if((a.y>target.y)!==(b.y>target.y)&&target.x<(b.x-a.x)*(target.y-a.y)/(b.y-a.y)+a.x)inPalm=!inPalm;
+  }
   const bend=jointCurl(points[mcp],points[pip],points[index===0?tip:dip],aspect)??0;
   const endBend=index===0?0:(jointCurl(points[pip],points[dip],points[tip],aspect)??0);
   // Distal joints can fold back even when a noisy tip-to-wrist distance looks long.
-  const folded=inPalm||bend>.48||endBend>.48;
+  const returning=distance(points[tip],points[0],aspect)<distance(points[pip],points[0],aspect)*1.12;
+  const folded=inPalm||((bend>.58||endBend>.58)&&returning)||endBend>.95;
   const clear=!inPalm&&bend<.30&&endBend<.30;
-  return {folded,clear};
+  return {folded,clear,inPalm};
 }
 function smooth(point,old,dt){
   if(!old)return {...point,speed:0};
@@ -65,9 +65,9 @@ export class HandGestures{
     const hands=(landmarks||[]).slice(0,2).map((points,i)=>{
       const hand=describeHand(points,aspect);if(!hand)return null;
       const label=handedness[i]?.[0];
-      return {...hand,label:label?.score>.8?label.categoryName:null};
+      return {...hand,sourceIndex:i,label:label?.score>.8?label.categoryName:null};
     }).filter(Boolean);
-    const previous=this.slots.filter(slot=>time-slot.seen<180);
+    const previous=this.slots.filter(slot=>time-slot.seen<600);
     const cost=(hand,slot)=>Math.hypot(hand.palm.x-slot.palm.x,hand.palm.y-slot.palm.y)+(hand.label&&slot.label&&hand.label!==slot.label ? .65 : 0);
     let order=previous;
     if(hands.length===2&&previous.length===2&&cost(hands[0],previous[1])+cost(hands[1],previous[0])<cost(hands[0],previous[0])+cost(hands[1],previous[1]))order=[previous[1],previous[0]];
@@ -75,15 +75,17 @@ export class HandGestures{
     if(hands.length===1&&previous.length===2)order=[...previous].sort((a,b)=>cost(hands[0],a)-cost(hands[0],b));
     const dt=this.lastTime?clamp((time-this.lastTime)/1000,.005,.15):.05;
     const output=hands.map((hand,i)=>{
-      const old=order[i];
+      const candidate=order[i],old=candidate&&cost(hand,candidate)<.55?candidate:null;
       // Folded fingertips are not contact candidates. Reopen farther before
       // restoring a target so a partly hidden finger cannot flicker on/off.
+      const pinchCandidate=hand.pinchRatio<(old?.pinched ? .52 : .34)&&!hand.fingers[0].inPalm&&!hand.fingers[1].inPalm;
       const available=hand.fingers.map((finger,j)=>{
         const before=old?.fingers?.[j];
-        const safe=!finger.folded&&finger.curl<.50;
-        const reopening=safe&&finger.clear&&finger.curl<.30;
+        const pinchTip=j<2&&pinchCandidate;
+        const safe=!finger.inPalm&&(pinchTip||!finger.folded&&finger.curl<.55);
+        const reopening=safe&&(pinchTip||finger.clear&&finger.curl<.32);
         const clearFrames=reopening?(before?.clearFrames??0)+1:0;
-        const active=safe&&(before?.active!==false||clearFrames>=3);
+        const active=safe&&(before?.active!==false||clearFrames>=2);
         return {...finger,active,clearFrames};
       });
       const pinched=available[0].active&&available[1].active&&hand.pinchRatio<(old?.pinched ? .52 : .34);
@@ -101,7 +103,7 @@ export class HandGestures{
         return {...finger,...position,x:clamp(position.x),y:clamp(position.y),pressing,
           strength:pressing?Math.max(j<2&&pinched?clamp(1-hand.pinchRatio/.65):0,finger.curl,closed?scrunchStrength:0,depth.push):0};
       });
-      return {id:old?.id??this.nextId++,label:hand.label||old?.label,palm:hand.palm,seen:time,...point,
+      return {id:old?.id??this.nextId++,sourceIndex:hand.sourceIndex,label:hand.label||old?.label,palm:hand.palm,seen:time,...point,
         x:clamp(point.x),y:clamp(point.y),pinched,closed,scrunchStrength,fingers,depth,
         gripping:fingers.some(f=>f.pressing),strength:Math.max(0,...fingers.map(f=>f.strength))};
     });

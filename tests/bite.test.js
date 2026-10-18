@@ -2,36 +2,48 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mouthPose,BiteGesture,toothLayout} from '../bite.js';
 import {SquishyMaterial} from '../physics.js';
-function face(ratio=.02,dx=0){
+function face(ratio=.02,dx=0,chinRatio=.6){
   const p=Array.from({length:478},()=>({x:.5+dx,y:.5,z:0}));
   p[61]={x:.4+dx,y:.5};p[291]={x:.6+dx,y:.5};
+  p[2]={x:.5+dx,y:.35};p[152]={x:.5+dx,y:.35+chinRatio*.4*4/3};p[234]={x:.3+dx,y:.45};p[454]={x:.7+dx,y:.45};
   p[13]={x:.5+dx,y:.5-ratio*.2*4/3/2};p[14]={x:.5+dx,y:.5+ratio*.2*4/3/2};return p;
 }
-test('closed mouths, lip jitter and brief openings never bite',()=>{
+const blends=jaw=>[{categoryName:'jawOpen',score:jaw}];
+const sample=(g,ratio,jaw,time,dx=0,chin)=>g.update(face(ratio,dx,chin??.6+jaw*.3),time,4/3,blends(jaw));
+test('closed mouths have no visible target, and lip-only closure cannot bite',()=>{
   const g=new BiteGesture();
-  for(let t=0;t<1000;t+=50)assert.equal(g.update(face(t%100?.1:.02),t).bite,false);
-  g.update(face(.5),1000);assert.equal(g.update(face(),1050).bite,false);
+  for(let t=0;t<600;t+=100){const m=sample(g,.01,.02,t);assert.equal(m.visible,false);assert.equal(m.bite,false);}
+  sample(g,.5,.65,600);sample(g,.5,.65,750);
+  assert.equal(sample(g,.01,.65,850).bite,false);
+  // Even a misleading jaw coefficient cannot trigger while chin geometry stays open.
+  assert.equal(sample(g,.01,.03,950,0,.795).bite,false);
 });
-test('a deliberate open and close triggers once and needs rearming after cooldown',()=>{
-  const g=new BiteGesture();g.update(face(.5),0);
-  assert.equal(g.update(face(.5),150).armed,true);
-  assert.equal(g.update(face(),250).bite,true);
-  assert.equal(g.update(face(),300).bite,false);
-  g.update(face(.5),400);assert.equal(g.update(face(),550).bite,false);
-  g.update(face(.5),1300);g.update(face(.5),1450);assert.equal(g.update(face(),1500).bite,true);
+test('bringing the jaw closed bites while lips remain parted and rearms only after cooldown',()=>{
+  const g=new BiteGesture();sample(g,.5,.65,0);
+  assert.equal(sample(g,.5,.65,150).armed,true);
+  const closing=sample(g,.20,.07,250);
+  assert.equal(closing.bite,true);assert.equal(closing.visible,false);
+  assert.equal(sample(g,.20,.07,300).bite,false);
+  sample(g,.5,.65,400);assert.equal(sample(g,.20,.07,550).bite,false);
+  sample(g,.5,.65,1300);sample(g,.5,.65,1450);assert.equal(sample(g,.20,.07,1500).bite,true);
 });
-test('face loss, stale tracking, large motion, timeout and reset cancel a pending bite',()=>{
+test('brief openings, missing jaw signals and a static smiling mouth never bite',()=>{
+  const g=new BiteGesture();sample(g,.5,.65,0);assert.equal(sample(g,.20,.07,50).bite,false);
+  assert.equal(g.update(face(.5),100,4/3,[]).visible,false);
+  for(let t=150;t<700;t+=100)assert.equal(sample(g,.3,.04,t).bite,false);
+});
+test('face loss, stale tracking, large motion, timeout and reset cancel a pending jaw bite',()=>{
   for(const cancel of ['lost','stale','move','timeout','reset']){
-    const g=new BiteGesture();g.update(face(.5),0);g.update(face(.5),150);
+    const g=new BiteGesture();sample(g,.5,.65,0);sample(g,.5,.65,150);
     if(cancel==='lost')g.update(null,200);
-    if(cancel==='stale'){assert.equal(g.update(face(),600).bite,false);continue;}
-    if(cancel==='move')g.update(face(.5,.2),200);
+    if(cancel==='stale'){assert.equal(sample(g,.2,.07,800).bite,false);continue;}
+    if(cancel==='move')sample(g,.5,.65,200,.2);
     if(cancel==='reset')g.reset();
     if(cancel==='timeout'){
-      for(let t=200;t<2200;t+=100)g.update(face(.5),t);
-      assert.equal(g.update(face(),2200).bite,false);continue;
+      for(let t=200;t<2400;t+=100)sample(g,.5,.65,t);
+      assert.equal(sample(g,.2,.07,2400).bite,false);continue;
     }
-    assert.equal(g.update(face(),250).bite,false);
+    assert.equal(sample(g,.2,.07,250).bite,false);
   }
 });
 test('mouth position is mirrored and lip ratio survives camera scale changes',()=>{
@@ -83,4 +95,12 @@ test('curved pearl retains real front-surface tooth impressions with finite shad
     if(rest[i+2]<0)assert.equal(p.marks[i+2],0);
   }
   assert.ok(marked>20);g.dispose();
+});
+
+test('relaxed jaw bias calibrates automatically and a partly closed jaw does not bite early',()=>{
+  const g=new BiteGesture();sample(g,.01,.15,0);
+  sample(g,.5,.65,100);sample(g,.5,.65,250);
+  assert.equal(sample(g,.25,.3,350).bite,false);
+  const closed=sample(g,.16,.16,450);
+  assert.equal(closed.bite,true);assert.equal(closed.visible,false);
 });

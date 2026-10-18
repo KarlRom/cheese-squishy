@@ -27,3 +27,5 @@ body[data-scene=dropping] .pickup-button{visibility:hidden}
 
 .settings select{display:block;width:100%;min-height:44px;margin-top:7px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:#faf9f6;color:#665d4d;font:inherit;font-size:12px;cursor:pointer}.settings select:focus-visible{outline:2px solid #b8944f;outline-offset:3px}
 @media(pointer:coarse){.settings select{font-size:16px}}
+
+#tracking-feedback:empty{display:none}#recenter-hands{display:block;width:calc(100% - 16px);min-height:44px;margin:0 8px 6px;border:1px solid var(--line);border-radius:10px;background:#faf9f6;font-size:10px;color:#756b5c}.hand-panel[data-state=starting] #recenter-hands,.hand-panel[data-state=error] #recenter-hands{display:none}

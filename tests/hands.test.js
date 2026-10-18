@@ -172,8 +172,8 @@ test('one apparently open frame cannot resurrect a hidden finger or a previous p
   const noisy=tracker.update([hand({pinch:true})],120)[0];
   assert.equal(noisy.pinched,false);assert.ok(noisy.fingers.every(f=>!f.active));
   tracker.update([folded()],180);
-  for(const t of [240,300])assert.equal(tracker.update([hand({pinch:true})],t)[0].pinched,false);
-  assert.equal(tracker.update([hand({pinch:true})],360)[0].pinched,true);
+  assert.equal(tracker.update([hand({pinch:true})],240)[0].pinched,false);
+  assert.equal(tracker.update([hand({pinch:true})],300)[0].pinched,true);
 });
 
 test('moving an extended hand closer activates depth pressing, while folded fingers remain excluded',()=>{
@@ -202,4 +202,26 @@ test('two hands preserve opposite depth motions when detector ordering changes',
   const near=output.find(h=>h.id===initial[0].id),far=output.find(h=>h.id===initial[1].id);
   assert.ok(near.depth.push>.5);assert.equal(near.depth.pull,0);
   assert.ok(far.depth.pull>.5);assert.equal(far.depth.push,0);
+});
+
+test('a curved thumb/index pinch outside the actual palm stays eligible',()=>{
+  const p=hand();
+  p[6]={x:.4,y:.38,z:0};p[7]={x:.47,y:.31,z:0};p[8]={x:.49,y:.40,z:0};
+  p[3]={x:.47,y:.50,z:0};p[4]={x:.50,y:.41,z:0};
+  const slot=new HandGestures().update([p],0)[0];
+  assert.equal(slot.pinched,true);assert.ok(slot.fingers.slice(0,2).every(f=>f.active&&f.pressing));
+});
+test('a visible thumb beside the narrow wrist is not masked by a rectangular palm region',()=>{
+  const p=hand();p[3]={x:.39,y:.69,z:0};p[4]={x:.38,y:.75,z:0};
+  const slot=new HandGestures().update([p],0)[0];
+  assert.equal(slot.fingers[0].inPalm,false);assert.equal(slot.fingers[0].active,true);
+});
+test('slow continuous camera frames preserve hand identity and the depth reference',()=>{
+  const tracker=new HandGestures(),first=tracker.update([hand()],0)[0];let current;
+  for(let t=300;t<=1800;t+=300)current=tracker.update([hand({scale:1.25})],t)[0];
+  assert.equal(current.id,first.id);assert.ok(current.depth.push>.3);
+});
+test('a valid second hand retains its source index if the first hand is rejected',()=>{
+  const output=new HandGestures().update([hand({scale:.01}),hand({dx:.1})],0);
+  assert.equal(output.length,1);assert.equal(output[0].sourceIndex,1);
 });

@@ -1,8 +1,8 @@
-import {BiteGesture} from './bite.js?v=2.17.0';
-import {HandGestures} from './hand-gestures.js?v=2.17.0';
+import {BiteGesture} from './bite.js?v=2.18.0';
+import {HandGestures} from './hand-gestures.js?v=2.18.0';
 export class HandMode{
-  constructor({video,overlay,onHands,onMouth=()=>{},onStatus}){
-    Object.assign(this,{video,overlay,onHands,onMouth,onStatus});
+  constructor({video,overlay,onHands,onMouth=()=>{},onFeedback=()=>{},onStatus}){
+    Object.assign(this,{video,overlay,onHands,onMouth,onFeedback,onStatus});
     this.bites=new BiteGesture();this.gestures=new HandGestures();this.session=0;this.active=false;this.phase='off';
   }
   status(phase,message){this.phase=phase;this.onStatus(phase,message);}
@@ -21,7 +21,7 @@ export class HandMode{
       this.video.srcObject=stream;await this.video.play();
       if(token!==this.session)return;
       this.status('starting','Loading hand tracking… First use may take a moment.');
-      const worker=new Worker(new URL('./hand-worker.js?v=2.17.0',document.baseURI));this.worker=worker;
+      const worker=new Worker(new URL('./hand-worker.js?v=2.18.0',document.baseURI));this.worker=worker;
       await new Promise((resolve,reject)=>{
         this.rejectInit=reject;
         const timer=setTimeout(()=>reject(new Error('load')),40000);this.initTimer=timer;
@@ -33,8 +33,8 @@ export class HandMode{
         worker.postMessage({type:'init'});
       });
       if(token!==this.session)return;
-      this.active=true;this.busy=false;this.lastSent=0;this.lastVideoTime=-1;this.frameInterval=50;
-      this.status('active',this.faceAvailable?'Move closer to push. Pinch and move away to pull. Open then close your mouth over the toy to bite.':'Move closer to push. Pinch and move away to pull. Mouth tracking unavailable on this device.');
+      this.active=true;this.busy=false;this.lastSent=0;this.lastVideoTime=-1;this.frameInterval=50;this.lastMouth=null;
+      this.status('active',this.faceAvailable?'Move closer to push. Pinch and move away to pull. Open your jaw, then bring your teeth together over the toy to bite.':'Move closer to push. Pinch and move away to pull. Mouth tracking unavailable on this device.');
       worker.onerror=()=>this.fail(token,'Hand tracking stopped. You can retry or use touch.');
       worker.onmessage=({data})=>{
         if(token!==this.session)return;
@@ -42,11 +42,16 @@ export class HandMode{
         if(data.type==='result'){
           this.busy=false;
           if(this.faceAvailable&&data.faceAvailable===false){this.faceAvailable=false;this.status('active','Mouth tracking stopped. Hand and touch controls remain available.');}
-          if(performance.now()-data.time>400){this.gestures.reset();this.bites.reset();this.onMouth(null);this.onHands([]);return;}
-          const hands=this.gestures.update(data.landmarks,performance.now(),this.video.videoWidth/Math.max(1,this.video.videoHeight),data.handedness);
-          this.frameInterval=Math.max(50,Math.min(110,this.frameInterval*.8+(performance.now()-data.time)*.22));
-          const mouth=this.bites.update(data.faceLandmarks,performance.now(),this.video.videoWidth/Math.max(1,this.video.videoHeight));
-          this.draw(data.landmarks,hands,mouth);this.onHands(hands);this.onMouth(mouth);
+          if(performance.now()-data.time>650){this.recenter();this.overlay.getContext('2d').clearRect(0,0,320,240);this.onFeedback('Tracking is delayed. Try a brighter view of your hands.');return;}
+          const hands=this.gestures.update(data.landmarks,data.time,this.video.videoWidth/Math.max(1,this.video.videoHeight),data.handedness);
+          this.frameInterval=Math.max(50,Math.min(140,this.frameInterval*.75+(performance.now()-data.time)*.25));
+          if(data.faceUpdated){
+            this.lastMouth=this.bites.update(data.faceLandmarks,data.time,this.video.videoWidth/Math.max(1,this.video.videoHeight),data.faceBlendshapes);
+            this.onMouth(this.lastMouth);
+          }else if(!data.faceAvailable){this.lastMouth=null;this.onMouth(null);}
+          this.draw(data.landmarks,hands,this.lastMouth);this.onHands(hands);
+          const count=hands.reduce((sum,h)=>sum+h.fingers.filter(f=>f.active).length,0);
+          this.onFeedback(`${hands.length} hand${hands.length===1?'':'s'} · ${count} fingertip${count===1?'':'s'}${this.lastMouth?.visible?' · Jaw open':''}`);
         }
       };
       const frame=async(now)=>{
@@ -69,22 +74,27 @@ export class HandMode{
   }
   draw(landmarks,hands=[],mouth=null){
     const canvas=this.overlay,ctx=canvas.getContext('2d');
-    const w=canvas.width=320,h=canvas.height=240;ctx.clearRect(0,0,w,h);
+    const w=320,h=240;if(canvas.width!==w)canvas.width=w;if(canvas.height!==h)canvas.height=h;ctx.clearRect(0,0,w,h);
     for(const [handIndex,points] of landmarks.entries()){
       if(points.length!==21||points.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y)))continue;
-      const hidden=new Set([[1,2,3,4],[6,7,8],[10,11,12],[14,15,16],[18,19,20]].flatMap((joints,i)=>hands[handIndex]?.fingers[i]?.active?[]:joints));
-      ctx.lineWidth=2;ctx.strokeStyle=(hands[handIndex]?.id||0)%2?'#d3bedf':'#f4deb5';ctx.beginPath();
+      const tracked=hands.some(h=>h.sourceIndex!==undefined)?hands.find(h=>h.sourceIndex===handIndex):hands[handIndex];
+      const hidden=new Set([[1,2,3,4],[6,7,8],[10,11,12],[14,15,16],[18,19,20]].flatMap((joints,i)=>tracked?.fingers[i]?.active?[]:joints));
+      ctx.lineWidth=2;ctx.strokeStyle=(tracked?.id||0)%2?'#d3bedf':'#f4deb5';ctx.beginPath();
       for(const [a,b] of [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[0,17],[17,18],[18,19],[19,20]]){
         if(hidden.has(b))continue;
         ctx.moveTo((1-points[a].x)*w,points[a].y*h);ctx.lineTo((1-points[b].x)*w,points[b].y*h);
       }
       ctx.stroke();
-      for(const [fingerIndex,i] of [4,8,12,16,20].entries()){if(!hands[handIndex]?.fingers[fingerIndex]?.active)continue;ctx.beginPath();ctx.arc((1-points[i].x)*w,points[i].y*h,4,0,Math.PI*2);ctx.fillStyle=hands[handIndex]?.fingers[fingerIndex]?.pressing?ctx.strokeStyle:'#ffffff';ctx.fill();}
+      for(const [fingerIndex,i] of [4,8,12,16,20].entries()){if(!tracked?.fingers[fingerIndex]?.active)continue;ctx.beginPath();ctx.arc((1-points[i].x)*w,points[i].y*h,4,0,Math.PI*2);ctx.fillStyle=tracked?.fingers[fingerIndex]?.pressing?ctx.strokeStyle:'#ffffff';ctx.fill();}
     }
-    if(mouth){
+    if(mouth?.visible){
       ctx.strokeStyle=mouth.armed?'#ad8150':'#c5b6a1';ctx.lineWidth=2;ctx.beginPath();
       ctx.ellipse(mouth.x*w,mouth.y*h,Math.max(5,mouth.width*w*.5),Math.max(3,mouth.ratio*mouth.width*w*.5),0,0,Math.PI*2);ctx.stroke();
     }
+  }
+  recenter(){
+    this.gestures.reset();this.bites.reset();this.lastMouth=null;this.onHands([]);this.onMouth(null);
+    this.onFeedback('Hands recentered. Move closer to press.');
   }
   fail(token,message){if(token!==this.session)return;this.stop();this.status('error',message);}
   stop(){
@@ -92,7 +102,7 @@ export class HandMode{
     this.rejectInit?.(new Error('cancelled'));this.rejectInit=null;
     this.worker?.terminate();this.worker=null;
     this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;
-    this.bites.reset();this.onMouth(null);this.video.pause();this.video.srcObject=null;this.gestures.reset();this.onHands([]);
+    this.bites.reset();this.lastMouth=null;this.onMouth(null);this.onFeedback('');this.video.pause();this.video.srcObject=null;this.gestures.reset();this.onHands([]);
     this.overlay.getContext('2d').clearRect(0,0,this.overlay.width,this.overlay.height);
     this.status('off','Camera off.');
   }

@@ -59,3 +59,27 @@ test('camera overlay omits endpoint dots for excluded fingertips',()=>{
   assert.deepEqual(arcs,[[ (1-points[8].x)*320,120],[(1-points[16].x)*320,120]]);
   for(const i of [1,2,3,4,10,11,12,18,19,20])assert.ok(!lines.some(([x])=>Math.abs(x-(1-points[i].x)*320)<1e-8));
 });
+
+test('closed-mouth preview is absent and recenter clears both gesture states without stopping the camera',async()=>{
+  const h=harness(async()=>stream());
+  try{
+    await h.mode.start();
+    h.mode.draw([],[],{visible:false}); // Context has no ellipse; drawing here would fail.
+    h.mode.gestures.slots=[{id:12}];h.mode.bites.armed=true;
+    h.mode.recenter();assert.deepEqual(h.mode.gestures.slots,[]);assert.equal(h.mode.bites.armed,false);
+    assert.equal(h.mode.active,true);assert.equal(h.workers[0].terminated,false);
+  }finally{h.restore();}
+});
+
+test('hand-only worker frames retain the last face result instead of clearing bite recognition',async()=>{
+  const h=harness(async()=>stream());
+  try{
+    await h.mode.start();h.mode.draw=()=>{};h.video.videoWidth=640;h.video.videoHeight=480;
+    let count=0;h.mode.bites.update=()=>{count++;return {visible:true,armed:true};};
+    const time=performance.now();
+    h.workers[0].onmessage({data:{type:'result',time,landmarks:[],handedness:[],faceAvailable:true,faceUpdated:true,faceLandmarks:[]}});
+    const previous=h.mode.lastMouth;
+    h.workers[0].onmessage({data:{type:'result',time:time+50,landmarks:[],handedness:[],faceAvailable:true,faceUpdated:false}});
+    assert.equal(count,1);assert.equal(h.mode.lastMouth,previous);
+  }finally{h.restore();}
+});

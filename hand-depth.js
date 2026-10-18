@@ -3,12 +3,12 @@ const copy=size=>({width:size.width,length:size.length});
 function shift(size,reference){
   const width=Math.log(size.width/reference.width),length=Math.log(size.length/reference.length);
   // Reject one-axis foreshortening rather than interpreting a hand turn as depth.
-  return {value:(width+length)/2,reliable:Math.abs(width-length)<.13};
+  return {value:(width+length)/2,reliable:Math.abs(width-length)<.20};
 }
 export function trackHandDepth(size,previous,time,dt,pinched,aspect=4/3){
   const valid=size&&size.visible&&size.width>.025&&size.length>.025&&Number.isFinite(size.width+size.length);
   if(!valid)return {seen:time,push:0,pull:0,pushing:false,valid:false};
-  const fresh=!previous?.valid||time-previous.seen>180||Math.abs((previous.aspect??aspect)-aspect)>.01;
+  const fresh=!previous?.valid||time-previous.seen>500||Math.abs((previous.aspect??aspect)-aspect)>.01;
   const reference=fresh?copy(size):previous.reference;
   const pinchReference=pinched?(!fresh&&previous.pinched?previous.pinchReference:copy(size)):null;
   const approach=shift(size,reference),retreat=pinchReference?shift(size,pinchReference):null;
