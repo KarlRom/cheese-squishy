@@ -32,7 +32,11 @@ export class SquishyMaterial {
         if(d2>(c.localized?support2:c.radius*c.radius*12))continue;
         // Compact fingertip support has zero displacement and slope at its edge.
         // A second press cannot tug on a distant dent or the opposite face.
-        const footprint=c.localized?Math.max(0,1-d2/support2)**3:Math.exp(-d2/(2*c.radius*c.radius));
+        const q=Math.max(0,1-d2/support2);
+        // A broad, rounded shoulder carries a thick-skin pull into adjacent
+        // material instead of stretching a tiny patch into a sharp membrane.
+        const core=q*q*q,shoulder=q*q*(3-2*q);
+        const footprint=c.localized?core+(shoulder-core)*(c.thickness||0)*.65:Math.exp(-d2/(2*c.radius*c.radius));
         const w=footprint*(c.weight??1);
         const depth = c.depth * stiffness;
         const dot = dx * c.normal[0] + dy * c.normal[1] + dz * c.normal[2];

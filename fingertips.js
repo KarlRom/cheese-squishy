@@ -1,14 +1,19 @@
 const FINGER_STRENGTH=.85;
-// A fingertip occupies about a tenth of the toy's width. Pulling widens only
-// its small attachment region, rather than dragging or scaling the whole toy.
+// Thick rubber resists extension progressively and recruits a wider shoulder
+// around a pulling finger. A press keeps its small, localized footprint.
 export function fingerContact(contact){
   const drag=[...(contact.drag||[0,0,0])];
   let length=Math.hypot(...drag);
   if(length>1.08){for(let i=0;i<3;i++)drag[i]*=1.08/length;length=1.08;}
-  return {...contact,localized:true,drag:drag.map(v=>v*FINGER_STRENGTH),
-    radius:Math.max(.17,Math.min(.28,contact.radius??.22))+Math.min(.06,length*.055),
-    depth:Math.min(.46,Math.max(0,contact.depth??.34))*(1-Math.min(.68,length*.65))*FINGER_STRENGTH,
-    pull:contact.scrunch?0:Math.min(.48,Math.max(0,length-.08)*.62)*FINGER_STRENGTH};
+  const stretch=contact.scrunch?0:Math.max(0,length-.08);
+  const thickness=1-Math.exp(-stretch/.28);
+  const travel=contact.scrunch?length:Math.min(length,.40*Math.tanh(length/.55));
+  const dragScale=length>0?travel/length:1;
+  return {...contact,localized:true,thickness,
+    drag:drag.map(v=>v*dragScale*FINGER_STRENGTH),
+    radius:Math.max(.17,Math.min(.28,contact.radius??.22))+(contact.scrunch?Math.min(.06,length*.055):thickness*.20),
+    depth:Math.min(.46,Math.max(0,contact.depth??.34))*(1-Math.min(contact.scrunch ? .68 : .82,length*(contact.scrunch ? .65 : .82)))*FINGER_STRENGTH,
+    pull:contact.scrunch?0:.22*Math.tanh(stretch*1.8)*FINGER_STRENGTH};
 }
 
 // Overlapping fingers share a pressure budget. Separated fingertips retain
@@ -18,7 +23,8 @@ export function balanceContacts(contacts){
     let density=0;
     for(const other of contacts){
       const distance2=contact.point.reduce((sum,v,i)=>sum+(v-other.point[i])**2,0);
-      density+=Math.exp(-distance2/(2*.22*.22));
+      const width=Math.max(.22,contact.radius,other.radius);
+      density+=Math.exp(-distance2/(2*width*width));
     }
     return {...contact,weight:1/Math.max(1,density)};
   });

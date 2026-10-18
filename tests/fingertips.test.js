@@ -12,8 +12,8 @@ test('a fingertip dent moves its center and shoulder but leaves nearby and oppos
 });
 test('pulling stretches a local attachment outward without moving the whole toy',()=>{
   const p=loaded({...press,drag:[1,0,0]});
-  assert.ok(p.offset[0]>.55);assert.ok(p.offset[2]>.1);
-  assert.equal(p.offset[6],0);assert.equal(p.offset[11],0);
+  assert.ok(p.offset[0]>.25&&p.offset[0]<.4);assert.ok(p.offset[2]>.05&&p.offset[2]<.15);
+  assert.ok(p.offset[6]<p.offset[0]*.25);assert.equal(p.offset[11],0);assert.equal(p.offset[12],0);
   for(const n of p.offset)assert.ok(Number.isFinite(n));
 });
 test('two separated fingertips make two dents with undisturbed material between them',()=>{
@@ -35,7 +35,7 @@ test('a released fingertip pull recovers slowly without overshoot',()=>{
     }
     before=p.offset.slice();
   }
-  assert.ok(p.offset[0]>.5);
+  assert.ok(p.offset[0]>.25);
 });
 
 test('five overlapping fingertips share pressure instead of multiplying it',async()=>{
@@ -78,4 +78,35 @@ test('grips may use recent surface hits during closure but never stale or absent
   assert.equal(recentGripHit(cached,501,true),null);
   assert.equal(recentGripHit(cached,200,false),null);
   assert.equal(recentGripHit(undefined,200,true),null);
+});
+
+test('a thick pull carries a broad rounded shoulder while a press remains fingertip sized',()=>{
+  const p=new SquishyMaterial(new Float32Array([0,0,1,.4,0,1,.6,0,1,1.3,0,1,0,0,-1]));
+  const c=fingerContact({...press,drag:[1,0,0]});
+  for(let i=0;i<120;i++)p.step(1/60,[c]);
+  assert.ok(p.offset[3]>.65*p.offset[0]);
+  assert.ok(p.offset[6]>.35*p.offset[0]);
+  assert.equal(p.offset[9],0);assert.equal(p.offset[14],0);
+  const touching=fingerContact(press);
+  assert.equal(touching.radius,press.radius);assert.equal(touching.thickness,0);
+});
+test('strong sideways pinches keep ordered surface vertices and broad shoulders without foldover',async()=>{
+  const {balanceContacts}=await import('../fingertips.js');
+  const vertices=new Float32Array(Array.from({length:321},(_,i)=>[(i-160)*.01,0,1]).flat());
+  for(const radius of [.17,.22,.28])for(const paired of [false,true]){
+    const contacts=paired?[-.3,.3].map(x=>fingerContact({...press,radius,point:[x,0,1],drag:[Math.sign(x)*10,0,0]})):
+      [fingerContact({...press,radius,drag:[10,0,0]})];
+    const p=new SquishyMaterial(vertices);
+    for(let i=0;i<120;i++)p.step(1/60,balanceContacts(contacts));
+    for(let i=3;i<vertices.length;i+=3){
+      const spacing=vertices[i]+p.offset[i]-vertices[i-3]-p.offset[i-3];
+      assert.ok(spacing>.001,`skin collapsed: ${spacing}, radius ${radius}, paired ${paired}`);
+    }
+  }
+});
+test('pull travel meets increasing resistance and saturates for extreme finger motion',()=>{
+  const travel=length=>Math.hypot(...fingerContact({...press,drag:[length,0,0]}).drag);
+  assert.ok(travel(.4)>travel(.2));assert.ok(travel(.8)>travel(.4));
+  assert.ok((travel(.8)-travel(.4))/.4<(travel(.4)-travel(.2))/.2);
+  assert.ok(travel(100)<.35);assert.equal(travel(100),travel(1.08));
 });
