@@ -1,5 +1,5 @@
-import {BiteGesture} from './bite.js?v=2.14.0';
-import {HandGestures} from './hand-gestures.js?v=2.14.0';
+import {BiteGesture} from './bite.js?v=2.15.0';
+import {HandGestures} from './hand-gestures.js?v=2.15.0';
 export class HandMode{
   constructor({video,overlay,onHands,onMouth=()=>{},onStatus}){
     Object.assign(this,{video,overlay,onHands,onMouth,onStatus});
@@ -21,7 +21,7 @@ export class HandMode{
       this.video.srcObject=stream;await this.video.play();
       if(token!==this.session)return;
       this.status('starting','Loading hand tracking… First use may take a moment.');
-      const worker=new Worker(new URL('./hand-worker.js?v=2.14.0',document.baseURI));this.worker=worker;
+      const worker=new Worker(new URL('./hand-worker.js?v=2.15.0',document.baseURI));this.worker=worker;
       await new Promise((resolve,reject)=>{
         this.rejectInit=reject;
         const timer=setTimeout(()=>reject(new Error('load')),40000);this.initTimer=timer;
@@ -72,8 +72,10 @@ export class HandMode{
     const w=canvas.width=320,h=canvas.height=240;ctx.clearRect(0,0,w,h);
     for(const [handIndex,points] of landmarks.entries()){
       if(points.length!==21||points.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y)))continue;
+      const hidden=new Set([[1,2,3,4],[6,7,8],[10,11,12],[14,15,16],[18,19,20]].flatMap((joints,i)=>hands[handIndex]?.fingers[i]?.active?[]:joints));
       ctx.lineWidth=2;ctx.strokeStyle=(hands[handIndex]?.id||0)%2?'#d3bedf':'#f4deb5';ctx.beginPath();
       for(const [a,b] of [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[0,17],[17,18],[18,19],[19,20]]){
+        if(hidden.has(b))continue;
         ctx.moveTo((1-points[a].x)*w,points[a].y*h);ctx.lineTo((1-points[b].x)*w,points[b].y*h);
       }
       ctx.stroke();

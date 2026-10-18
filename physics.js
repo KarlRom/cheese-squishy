@@ -1,4 +1,4 @@
-import {imprintTeeth} from './bite.js?v=2.14.0';
+import {imprintTeeth} from './bite.js?v=2.15.0';
 /** Overdamped material-space deformation. Units: cube half-widths and seconds.
  * There is deliberately no velocity/spring integrator: release cannot oscillate.
  * Geometry, cavity walls and pigmentation all share these moving vertices.

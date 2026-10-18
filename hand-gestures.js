@@ -6,9 +6,28 @@ function jointCurl(a,b,c,aspect){
   const av=[(a.x-b.x)*aspect,a.y-b.y,((a.z||0)-(b.z||0))*aspect];
   const cv=[(c.x-b.x)*aspect,c.y-b.y,((c.z||0)-(b.z||0))*aspect];
   const length=Math.hypot(...av)*Math.hypot(...cv);
-  if(length<.00005)return null;
+  if(length<1e-12)return null;
   const angle=Math.acos(clamp(av.reduce((sum,v,i)=>sum+v*cv[i],0)/length,-1,1));
   return clamp((Math.PI-angle)/1.65);
+}
+// Conservative anatomical vetoes are separate from the pressure estimate.
+// A depth guess must not turn a fingertip projected inside the palm into a touch.
+export function fingerShape(points,index,aspect=4/3){
+  const tip=tips[index],mcp=mcps[index],pip=pips[index],dip=index===0?3:tip-1;
+  const wrist=points[0],base=points[9];
+  const ax=(base.x-wrist.x)*aspect,ay=base.y-wrist.y;
+  const palmLength=Math.max(.0001,Math.hypot(ax,ay));
+  const tx=(points[tip].x-wrist.x)*aspect,ty=points[tip].y-wrist.y;
+  const along=(tx*ax+ty*ay)/(palmLength*palmLength);
+  const side=Math.abs(tx*ay-ty*ax)/(palmLength*palmLength);
+  const palmWidth=distance(points[5],points[17],aspect)/palmLength;
+  const inPalm=along>-.08&&along<1.10&&side<palmWidth*.58;
+  const bend=jointCurl(points[mcp],points[pip],points[index===0?tip:dip],aspect)??0;
+  const endBend=index===0?0:(jointCurl(points[pip],points[dip],points[tip],aspect)??0);
+  // Distal joints can fold back even when a noisy tip-to-wrist distance looks long.
+  const folded=inPalm||bend>.48||endBend>.48;
+  const clear=!inPalm&&bend<.30&&endBend<.30;
+  return {folded,clear};
 }
 function smooth(point,old,dt){
   if(!old)return {...point,speed:0};
@@ -30,7 +49,7 @@ export function describeHand(points,aspect=4/3){
     const angle=jointCurl(points[mcps[i]],points[pips[i]],points[tip],aspect);
     // Distances carry most of the estimate; joint shape helps with foreshortening.
     const curl=i===0?clamp(1-distance(points[tip],palm,aspect)/(.60*scale)):extensionCurl*.8+(angle??extensionCurl)*.2;
-    return {name:names[i],tip,x:1-points[tip].x,y:points[tip].y,curl};
+    return {name:names[i],tip,x:1-points[tip].x,y:points[tip].y,curl,...fingerShape(points,i,aspect)};
   });
   const curl=fingers.slice(1).reduce((sum,f)=>sum+f.curl/4,0);
   return {pinchRatio,curl,palm,fingers,x:1-(points[4].x+points[8].x)/2,y:(points[4].y+points[8].y)/2};
@@ -55,18 +74,25 @@ export class HandGestures{
       const old=order[i];
       // Folded fingertips are not contact candidates. Reopen farther before
       // restoring a target so a partly hidden finger cannot flicker on/off.
-      const available=hand.fingers.map((finger,j)=>({...finger,
-        active:finger.curl<(old?.fingers?.[j]?.active===false ? .40 : .62)}));
+      const available=hand.fingers.map((finger,j)=>{
+        const before=old?.fingers?.[j];
+        const safe=!finger.folded&&finger.curl<.50;
+        const reopening=safe&&finger.clear&&finger.curl<.30;
+        const clearFrames=reopening?(before?.clearFrames??0)+1:0;
+        const active=safe&&(before?.active!==false||clearFrames>=3);
+        return {...finger,active,clearFrames};
+      });
       const pinched=available[0].active&&available[1].active&&hand.pinchRatio<(old?.pinched ? .52 : .34);
       // A loose multi-finger curl is enough; an isolated bent finger still presses alone.
-      const curled=hand.fingers.slice(1).filter(f=>f.curl>(old?.closed ? .22 : .35)).length;
-      const closed=curled>=2&&hand.curl>(old?.closed ? .18 : .30);
+      const curled=available.slice(1).filter(f=>f.active&&f.curl>(old?.closed ? .18 : .25)).length;
+      const eligibleCurl=available.slice(1).reduce((sum,f)=>sum+(f.active?f.curl:0)/4,0);
+      const closed=curled>=2&&eligibleCurl>(old?.closed ? .10 : .15);
       const target=closed?clamp((hand.curl-.16)/.68):0;
       const scrunchStrength=(old?.scrunchStrength??target)+(target-(old?.scrunchStrength??target))*(1-Math.exp(-dt/.085));
       const point=smooth(hand,old,time-(old?.seen??time)>120?.15:dt);
       const fingers=available.map((finger,j)=>{
         const before=old?.fingers?.[j],position=smooth(finger,before,dt);
-        const pressing=finger.active&&(closed||(j<2&&pinched)||(j>0&&finger.curl>(before?.pressing ? .40 : .57)));
+        const pressing=finger.active&&(closed||(j<2&&pinched)||(j>0&&finger.curl>(before?.pressing ? .25 : .35)));
         return {...finger,...position,x:clamp(position.x),y:clamp(position.y),pressing,
           strength:pressing?Math.max(j<2&&pinched?clamp(1-hand.pinchRatio/.65):0,finger.curl,closed?scrunchStrength:0):0};
       });
