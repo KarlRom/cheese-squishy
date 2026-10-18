@@ -46,7 +46,7 @@ The visible interface contains only the cheese and essential controls. Instructi
 - **Sound:** enabled by default after your first squeeze. In **Settings**, switch sounds off or adjust volume; preferences are saved locally. Short, quiet sticky sounds mark contact, pressing and lift-off; movement and deformation stay silent. Holding and recovery stay silent. Keyboard and tap squeezing also produce sound.
 - **Reset:** immediately restores the mesh and starting view, retaining your feel settings and selected interaction mode.
 - **Keyboard:** Tab to the canvas; hold Space or Enter to squeeze. In Squish mode, arrow keys move and briefly activate a front-face press; in Rotate mode they turn the view. R resets when the canvas is focused. Tab to the separate squeeze/reset buttons for ordinary button operation. Escape closes settings. Sliders support standard keyboard input.
-- **Reduced motion:** the system preference removes the whole-cube squeeze animation; direct local deformation remains available. There are no idle motions or automatic camera movements.
+- **Reduced motion:** the system preference removes the whole-cube squeeze animation; direct local deformation remains available. There are no idle motions. Pickup, drop and selection transitions are skipped with reduced motion.
 - Controls have accessible names, visible keyboard focus, and status announcements. No vibration, trackers, analytics or microphone access are required. The small foley file ships with the app and is fetched from the same host.
 
 ## Deploy to GitHub Pages
@@ -126,3 +126,13 @@ The selected toy starts on a light oak table in an offline 3D bedroom. Tap the t
 
 ## Sliding choices and Drop (2.6.0)
 Choosing another squishy slides the current toy out and the new one in, in the direction of the selector. Touch deformation and repeat changes are paused during the transition. Drop returns the held toy to the table with a soft, non-bouncing landing and preserves its current deformation. Reduced motion skips both transitions.
+
+## Optional Hand mode (2.7.0)
+
+Open Settings → Enable hand mode and allow the front camera. Move the on-screen dots over the toy. Pinch thumb and index finger to grab/dent it, move the pinch to pull, close a hand to squeeze, and open it to release. Two gripping hands moving together compress across their shared axis. A pinch on the table toy picks it up. Touch/mouse controls remain available and take priority during direct input. Camera gestures affect the toy in Squish mode; use the normal controls to rotate, switch toys or drop.
+
+The mirrored preview has an × button to stop the camera. No microphone is requested, no video is recorded, and no camera frames or hand landmarks are uploaded. Processing runs in a local Web Worker using bundled MediaPipe Tasks Vision 0.10.21 and hand_landmarker model version 1. The library, two WASM variants, and model total approximately 26 MB, loaded only when Hand mode is enabled. The browser may cache these assets. No CDN is used at runtime. Native assets are packaged offline.
+
+Serve over HTTPS (GitHub Pages) or localhost; opening index.html directly will not support camera/worker loading. Permission denial, unavailable cameras, model/worker failure and cancellation release resources and leave touch controls available. Lost/stale tracking releases the current press. Camera processing stops on leaving the page or when the app is backgrounded. Camera permission may need to be allowed in Safari or the operating-system settings.
+
+Hand squeeze strength is estimated from finger spacing and curl, not measured physical pressure. Lighting, occlusion and device speed affect reliability. Tests cover synthetic landmarks and mocked camera/worker lifecycle; real camera accuracy, Safari/WKWebView compatibility and iPhone performance require device testing.

@@ -1,3 +1,4 @@
+import {HandMode} from './hand-mode.js?v=2.7.0';
 import {createBedroom} from './room.js?v=2.5.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.6.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
@@ -368,7 +369,7 @@ function squeeze() {
 $('squeeze').addEventListener('click',squeeze);
 function reset() {
   if(isTransitioning())return;
-  clearGestures(); resetView();
+  clearGestures();clearHandContacts(); resetView();
   sound.silence();
   for (const id of contacts.keys()) if (canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
   contacts.clear(); pinch=null; pinchStart=null; heldKey=false; squeezeUntil=0;
@@ -413,7 +414,7 @@ function clearGestures(){
   for(const id of ids)if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);
 }
 function setMode(mode){
-  clearGestures();interactionMode=mode;
+  clearGestures();clearHandContacts();interactionMode=mode;
   $('mode-squish').setAttribute('aria-pressed',String(mode==='squish'));
   $('mode-rotate').setAttribute('aria-pressed',String(mode==='rotate'));
   $('view-buttons').hidden=mode!=='rotate';
@@ -441,6 +442,7 @@ function updateToyUI(){
 function selectToy(id){
   if(id===selectedToy.id||isTransitioning())return;
   clearGestures();
+  clearHandContacts();
   const outgoing=mesh,previous=selectedToy.id;
   selectedToy=toyFor(id);
   if(!toyStates.has(selectedToy.id))toyStates.set(selectedToy.id,createToy(selectedToy.id));
@@ -469,6 +471,88 @@ function animateToySlide(dt){
     mesh.position.set(0,0,0);toySlide=null;shadow.position.x=.1;shadow.position.z=.05;updateIntroUI();
   }
 }
+let handSamples=[],handSampleTime=0,handPairStart=null;
+const handContacts=new Map(),handMisses=new Map();
+function clearHandContacts(){
+  if(handContacts.size&&handMode.active){void sound.touch('release',.45);}
+  handContacts.clear();handMisses.clear();handPairStart=null;
+}
+const handMode=new HandMode({video:$('hand-video'),overlay:$('hand-overlay'),
+  onHands:hands=>{handSamples=hands;handSampleTime=performance.now();if(!hands.length)clearHandContacts();},
+  onStatus:(phase,message)=>{
+    $('hand-panel').hidden=phase==='off';$('hand-message').textContent=message;
+    $('hands-toggle').setAttribute('aria-pressed',String(phase==='starting'||phase==='active'));
+    $('hands-toggle').textContent=phase==='starting'?'Cancel hand mode':phase==='active'?'Turn hand mode off':'Enable hand mode';
+    $('hand-panel').dataset.state=phase;
+    $('hand-hint').textContent=phase==='error'?message:'Camera video stays on your device. No recording or microphone.';
+    if(phase!=='active'){
+      handSamples=[];clearHandContacts();
+      for(const dot of document.querySelectorAll('.hand-cursor'))dot.hidden=true;
+    }
+  }
+});
+$('hands-toggle').addEventListener('click',()=>{
+  if(handMode.phase==='starting'||handMode.active)handMode.stop();
+  else{clearGestures();setMode('squish');void unlockSound();void handMode.start();}
+});
+$('stop-hands').addEventListener('click',()=>handMode.stop());
+function handLoads(now){
+  const empty={contacts:[],pinch:null,squeeze:0};
+  if(!handMode.active){clearHandContacts();return empty;}
+  const fresh=handMode.active&&now-handSampleTime<350;
+  const usable=fresh&&!isTransitioning()&&!contacts.size&&!orbitPointers.size;
+  const rect=canvas.getBoundingClientRect();
+  const dots=[$('hand-cursor-0'),$('hand-cursor-1')];
+  for(let i=0;i<2;i++){
+    const sample=handSamples[i],dot=dots[i];dot.hidden=!fresh||!sample||isTransitioning();
+    if(sample){dot.style.left=`${sample.x*100}%`;dot.style.top=`${sample.y*100}%`;dot.classList.toggle('gripping',sample.gripping);}
+  }
+  if(!usable){clearHandContacts();return empty;}
+  if(introPhase==='table'){
+    for(const sample of handSamples)if(sample.gripping){
+      setRay(rect.left+sample.x*rect.width,rect.top+sample.y*rect.height);
+      mesh.updateMatrixWorld();if(raycaster.intersectObject(mesh).length){pickUp();break;}
+    }
+    return empty;
+  }
+  if(introPhase!=='ready'||interactionMode!=='squish'){clearHandContacts();return empty;}
+  const ids=new Set();let squeeze=0;
+  for(const sample of handSamples){
+    if(!sample.gripping)continue;
+    const x=rect.left+sample.x*rect.width,y=rect.top+sample.y*rect.height;
+    setRay(x,y);let contact=handContacts.get(sample.id);
+    if(!contact){
+      if(handMisses.get(sample.id)===handSampleTime)continue;
+      mesh.updateMatrixWorld();const hit=raycaster.intersectObject(mesh)[0];if(!hit){handMisses.set(sample.id,handSampleTime);continue;}
+      const bary=THREE.Triangle.getBarycoord(hit.point,
+        new THREE.Vector3().fromBufferAttribute(geometry.attributes.position,hit.face.a),
+        new THREE.Vector3().fromBufferAttribute(geometry.attributes.position,hit.face.b),
+        new THREE.Vector3().fromBufferAttribute(geometry.attributes.position,hit.face.c),new THREE.Vector3());
+      const anchor=new THREE.Vector3(),normal=new THREE.Vector3();
+      [hit.face.a,hit.face.b,hit.face.c].forEach((index,i)=>{
+        anchor.addScaledVector(new THREE.Vector3().fromArray(rest,index*3),bary.getComponent(i));
+        normal.addScaledVector(new THREE.Vector3().fromArray(restNormals,index*3),bary.getComponent(i));
+      });
+      contact={point:anchor.toArray(),normal:normal.normalize().toArray(),drag:[0,0,0],radius:.55,depth:0,
+        start:hit.point.clone(),plane:new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),hit.point)};
+      handContacts.set(sample.id,contact);void sound.touch('press',.6);
+    }
+    ids.add(sample.id);contact.depth=.15+sample.strength*.62;contact.x=x;contact.y=y;
+    const point=raycaster.ray.intersectPlane(contact.plane,new THREE.Vector3());
+    if(point)contact.drag=point.sub(contact.start).clampLength(0,.8).multiplyScalar(.72).toArray();
+    if(sample.closed)squeeze=Math.max(squeeze,sample.strength*.58);
+  }
+  for(const id of handContacts.keys())if(!ids.has(id)){handContacts.delete(id);void sound.touch('release',.55);}
+  let handPinch=null;
+  if(handContacts.size===2){
+    const [a,b]=[...handContacts.values()],dx=b.x-a.x,dy=b.y-a.y,distance=Math.hypot(dx,dy);
+    if(handPairStart===null)handPairStart=Math.max(40,distance);
+    const axis=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0).multiplyScalar(dx)
+      .addScaledVector(new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1),-dy).normalize();
+    handPinch={axis:axis.toArray(),amount:THREE.MathUtils.clamp(1-distance/handPairStart,0,.62)};
+  }else handPairStart=null;
+  return {contacts:[...handContacts.values()],pinch:handPinch,squeeze};
+}
 function updateIntroUI(){
   document.body.dataset.scene=introPhase;
   $('pick-up').disabled=isTransitioning();
@@ -485,7 +569,7 @@ function updateIntroUI(){
 }
 function pickUp(){
   if(introPhase!=='table'||isTransitioning())return;
-  clearGestures();void unlockSound();void sound.touch('release',.45);
+  clearGestures();clearHandContacts();void unlockSound();void sound.touch('release',.45);
   closeSettings();introPhase='lifting';liftElapsed=0;updateIntroUI();
   announce('Picking up your squishy.');
   if(reducedMotion)finishPickup();needsRender=true;
@@ -497,7 +581,7 @@ function finishPickup(){
 }
 function putDown(){
   if(introPhase!=='ready'||isTransitioning())return;
-  clearGestures();closeSettings();
+  clearGestures();clearHandContacts();closeSettings();
   dropStart={position:camera.position.clone(),zoom:camera.zoom};
   introPhase='dropping';liftElapsed=0;
   bedroom.visible=true;bedroom.position.y=-3.4;
@@ -592,10 +676,11 @@ function animate(now) {
     const held=Math.min((now-c.started)/1000,1.8);
     c.depth=.24+.39*(1-Math.exp(-held*2)) + Math.max(0,(c.pressure||.5)-.5)*.25;
   }
+  const hands=handLoads(now);active.push(...hands.contacts);
   const keyboardAuto=now<squeezeUntil||heldKey;
   if(keyboardAuto)active.push({point:keyboardPoint,normal:[0,0,1],drag:[0,-.10,0],radius:.62,depth:.38});
   if(buttonGesture&&now-buttonGesture.started>=buttonGesture.profile.duration)buttonGesture=null;
-  let autoPinch=null,autoSquash=keyboardAuto&&!reducedMotion?.72:0;
+  let autoPinch=null,autoSquash=(keyboardAuto&&!reducedMotion?.72:0)+hands.squeeze;
   if(buttonGesture){
     const {profile,started}=buttonGesture;
     const amount=.2+.8*(1-Math.exp(-(now-started)/170));
@@ -605,8 +690,8 @@ function animate(now) {
       autoSquash+=profile.squeeze*amount;
     }
   }
-  const auto=keyboardAuto||!!buttonGesture;
-  const effectivePinch=pinch||autoPinch;
+  const auto=keyboardAuto||!!buttonGesture||handContacts.size>0;
+  const effectivePinch=pinch||hands.pinch||autoPinch;
   const soundLoad=active.reduce((sum,c)=>sum+c.depth,0)+autoSquash*.3;
   sound.update(dt,soundLoad,effectivePinch?.amount||0);
   if(active.length||effectivePinch||physics.activity>.00002) {
@@ -627,8 +712,9 @@ function animate(now) {
   }
   frameHandle=requestAnimationFrame(animate);
 }
-function pause(){clearGestures();sound.suspend();paused=true;cancelAnimationFrame(frameHandle);lastTime=0;}
-window.addEventListener('blur',()=>{clearGestures();sound.suspend();});
+function pause(){handMode.stop();clearGestures();sound.suspend();paused=true;cancelAnimationFrame(frameHandle);lastTime=0;}
+window.addEventListener('blur',()=>{if(handMode.active||handMode.stream)handMode.stop();clearGestures();sound.suspend();});
+window.addEventListener('pagehide',()=>handMode.stop());
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden)pause();else if(paused){paused=false;lastTime=0;frameHandle=requestAnimationFrame(animate);}
 });
