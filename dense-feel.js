@@ -1,9 +1,9 @@
 import {fingerContact} from './fingertips.js?v=2.32.0';
-// Compression remains soft and deep; tensile motion is 65% less pronounced.
+// Compression remains soft and deep; tensile motion is 20% less pronounced.
 export function denseContact(raw){
   const c=fingerContact(raw);
-  return {...c,pull:c.pull*.35,
-    drag:c.drag.map(v=>v*(c.scrunch?1:.35)),
+  return {...c,pull:c.pull*.8,
+    drag:c.drag.map(v=>v*(c.scrunch?1:.8)),
     fold:c.scrunch?Math.min(.022,c.depth*.055):0};
 }
 export function handCompression(hands,contacts){

@@ -8,11 +8,11 @@ function simulate(contacts,squeeze=0){
  const p=new SquishyMaterial(new Float32Array([0,0,1,.2,0,1,.8,0,1,0,0,-1,-.8,.8,1,.8,.8,1,0,-1,0]));
  for(let i=0;i<180;i++)p.step(1/60,contacts,null,squeeze);return p;
 }
-test('production mouse and camera pulls have 65 percent less tensile displacement without weakening dents',()=>{
+test('production mouse and camera pulls have 20 percent less tensile displacement without weakening dents',()=>{
  for(const c of [raw,{...raw,depthControlled:true,cameraPull:.6}]){
   const before=fingerContact(c),after=denseContact(c);
-  assert.ok(Math.abs(after.pull-before.pull*.35)<1e-9);
-  after.drag.forEach((v,i)=>assert.ok(Math.abs(v-before.drag[i]*.35)<1e-9));
+  assert.ok(Math.abs(after.pull-before.pull*.8)<1e-9);
+  after.drag.forEach((v,i)=>assert.ok(Math.abs(v-before.drag[i]*.8)<1e-9));
   assert.equal(after.depth,before.depth);
  }
  const poke={...raw,drag:[0,0,0],deepPoke:true};
