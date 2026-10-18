@@ -13,7 +13,7 @@ export class SquishyMaterial {
     this.recovery = 0.25;
     this.activity = 0;
   }
-  get recoveryTime() { return 6 + 84 * (1 - this.recovery) ** 2; }
+  get recoveryTime() { return 6 + 170 * (1 - this.recovery) ** 2; }
   toothField(teeth) { const field=new Float32Array(this.rest.length);imprintTeeth(this.rest,field,teeth);return field; }
   applyImprint(field,strength=1) {
     for(let i=0;i<this.marks.length;i+=3){
@@ -75,6 +75,9 @@ export class SquishyMaterial {
         tx += -c.normal[0] * normalLoad * w + (dx - dot * c.normal[0]) * bulge + c.drag[0] * w;
         ty += -c.normal[1] * normalLoad * w + (dy - dot * c.normal[1]) * bulge + c.drag[1] * w;
         tz += -c.normal[2] * normalLoad * w + (dz - dot * c.normal[2]) * bulge + c.drag[2] * w;
+        // Broad, shallow compression creases; no high-frequency skin spikes.
+        const crease=(c.fold||0)*Math.sin((dx+dy)*8)*Math.sin((dy-dz)*7)*w;
+        tx+=c.normal[0]*crease;ty+=c.normal[1]*crease;tz+=c.normal[2]*crease;
         influence = Math.max(influence, footprint);
       }
       if (pinch && pinch.amount > 0) {
@@ -89,6 +92,8 @@ export class SquishyMaterial {
         // Accessible squeeze: compress vertically, leaving a broad soft bulge.
         const amount = squeeze * stiffness;
         tx += x * amount * 0.27; ty -= (y + 0.88) * amount * 0.49; tz += z * amount * 0.24;
+        const face=Math.exp(-(((Math.abs(z)-1)/.35)**2));
+        tz+=Math.sign(z)*Math.sin(x*8+y*3)*.018*amount*face;
         influence = 1;
       }
       // Stretching gradually kneads tooth impressions out of this local patch.

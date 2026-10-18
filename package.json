@@ -1,6 +1,6 @@
 {
   "name": "cheese-please-squishy",
-  "version": "2.31.0",
+  "version": "2.32.0",
   "private": true,
   "type": "module",
   "description": "A mobile-first viscous cheese cube squishy. No build required.",

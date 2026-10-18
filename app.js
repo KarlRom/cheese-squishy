@@ -1,18 +1,19 @@
+import {denseContact,handCompression} from './dense-feel.js?v=2.32.0';
 let pointerGripSequence=0;
-import {PinchGrips} from './pinch-grip.js?v=2.31.0';
-import {advanceCreep,retainMissingGrip} from './grip.js?v=2.31.0';
-import {LightingRig,lightingFor} from './lighting.js?v=2.31.0';
-import {toothLayout} from './bite.js?v=2.31.0';
-import {FingerPreview} from './finger-preview.js?v=2.31.0';
+import {PinchGrips} from './pinch-grip.js?v=2.32.0';
+import {advanceCreep,retainMissingGrip} from './grip.js?v=2.32.0';
+import {LightingRig,lightingFor} from './lighting.js?v=2.32.0';
+import {toothLayout} from './bite.js?v=2.32.0';
+import {FingerPreview} from './finger-preview.js?v=2.32.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.31.0';
-import {HandMode} from './hand-mode.js?v=2.31.0';
-import {createBedroom} from './room.js?v=2.31.0';
+import {balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.32.0';
+import {HandMode} from './hand-mode.js?v=2.32.0';
+import {createBedroom} from './room.js?v=2.32.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.31.0';
+import { SquishyMaterial } from './physics.js?v=2.32.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -606,7 +607,7 @@ function handLoads(now,dt){
     else contact.lastLoad={point:load.point,normal:load.normal,drag:load.drag,radius:load.radius,depth:load.depth,
       deepPoke:load.deepPoke,handId:load.handId,tip:load.tip,pinching:load.pinching,creep:load.creep,scrunch:load.scrunch,depthControlled:load.depthControlled,cameraPull:load.cameraPull};
   }
-  return {contacts:pinchGrips.update(loads)};
+  return {contacts:pinchGrips.update(loads),compression:handCompression(handSamples,loads)};
 }
 // Surface projection is tested only when a new camera result arrives.
 function mouthHit(x,y){
@@ -820,16 +821,17 @@ function animate(now) {
     const amount=.2+.8*(1-Math.exp(-(now-started)/170));
     for(const c of profile.contacts)active.push({...c,depth:c.depth*amount,drag:c.drag.map(v=>v*amount)});
     if(!reducedMotion){
-      autoPinch=profile.pinch?{axis:profile.pinch.axis,amount:profile.pinch.amount*amount*.15}:null;
-      autoSquash+=profile.squeeze*amount*.15;
+      autoPinch=profile.pinch?{axis:profile.pinch.axis,amount:profile.pinch.amount*amount*.55}:null;
+      autoSquash+=profile.squeeze*amount*.65;
     }
   }
   const auto=keyboardAuto||!!buttonGesture||handContacts.size>0;
+  autoSquash=Math.max(autoSquash,(hands.compression||0)*.65);
   const effectivePinch=autoPinch;
   const soundLoad=active.reduce((sum,c)=>sum+c.depth,0)+autoSquash*.3;
   sound.update(dt,soundLoad,effectivePinch?.amount||0);
   if(active.length||effectivePinch||physics.activity>.00002) {
-    physics.step(dt,balanceContacts(active.map(fingerContact)),effectivePinch,autoSquash);
+    physics.step(dt,balanceContacts(active.map(denseContact)),effectivePinch,autoSquash);
     if(!active.length&&!effectivePinch&&physics.activity<=.00002)physics.settle();
     physics.writePositions(geometry.attributes.position.array);
     geometry.attributes.position.needsUpdate=true; geometry.computeVertexNormals();
