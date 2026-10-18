@@ -63,7 +63,7 @@ export class StretchStrands{
       g.attributes.position.needsUpdate=true;g.computeVertexNormals();g.computeBoundingSphere();changed=true;
     }
     // The body supplies only the rooted shoulder; the added rings carry length.
-    const loads=contacts.map(c=>targets.has(c.stretchId)?{...c,drag:c.drag.map(v=>v*.08),cameraPull:Math.min(.045,c.cameraPull||0),depth:.015,deepPoke:false,creep:0}:c);
+    const loads=contacts.map(c=>targets.has(c.stretchId)?{...c,drag:c.drag.map(v=>v*.08),stretchWork:Math.min(1,Math.hypot(...targets.get(c.stretchId).delta)/3),cameraPull:Math.min(.045,c.cameraPull||0),depth:.015,deepPoke:false,creep:0}:c);
     return {loads,changed};
   }
 }

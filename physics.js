@@ -36,7 +36,7 @@ export class SquishyMaterial {
     let energy = 0;
     for (let i = 0; i < rest.length; i += 3) {
       const x = rest[i], y = rest[i + 1], z = rest[i + 2];
-      let tx = 0, ty = 0, tz = 0, influence = 0, extensionLimit = .92;
+      let tx = 0, ty = 0, tz = 0, influence = 0, stretchWork = 0, extensionLimit = .92;
       for (const c of contacts) {
         const dx = x - c.point[0], dy = y - c.point[1], dz = z - c.point[2];
         const d2 = dx * dx + dy * dy + dz * dz;
@@ -66,6 +66,7 @@ export class SquishyMaterial {
         const footprint=c.localized?(c.volumeContact?rounded+(tube-rounded)*held:rounded+(pad-rounded)*held):Math.exp(-d2/(2*c.radius*c.radius));
         extensionLimit=Math.max(extensionLimit,.92+held*1.05*footprint);
         const w=footprint*(c.weight??1);
+        stretchWork=Math.max(stretchWork,Math.min(1,Math.max(0,c.stretchWork||0))*w);
         const depth = c.depth * stiffness;
         const dot = dx * c.normal[0] + dy * c.normal[1] + dz * c.normal[2];
         // Local compression, tangential drag, and a soft displaced rim.
@@ -90,6 +91,10 @@ export class SquishyMaterial {
         tx += x * amount * 0.27; ty -= (y + 0.88) * amount * 0.49; tz += z * amount * 0.24;
         influence = 1;
       }
+      // Stretching gradually kneads tooth impressions out of this local patch.
+      // Idle recovery and compressive pokes do not erase unrelated marks.
+      const markRetention=Math.exp(-dt*stretchWork*.18);
+      for(let j=0;j<3;j++)this.marks[i+j]*=markRetention;
       // Keep the material intact under multiple overlapping fingers.
       const length = Math.hypot(tx, ty, tz);
       if (length > extensionLimit) { const scale = extensionLimit / length; tx *= scale; ty *= scale; tz *= scale; }
