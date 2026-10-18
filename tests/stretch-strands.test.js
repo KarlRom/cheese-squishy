@@ -33,9 +33,10 @@ test('strand meshes attach, shade, retract without overshoot and dispose on rese
  const p=child.geometry.attributes.position,idx=child.geometry.index.array,a=idx[32*24*6],b=idx[32*24*6+1],c=idx[32*24*6+2];
  const v=i=>new THREE.Vector3().fromBufferAttribute(p,i),va=v(a);
  assert.ok(v(b).sub(va).cross(v(c).sub(va)).dot(new THREE.Vector3(va.x,va.y,0))>0);
- let before=strands.states.get(grip.stretchId).delta.length();
- for(let i=0;i<120;i++){strands.update(1/60,[],parent,m,53);const next=strands.states.get(grip.stretchId).delta.length();assert.ok(next<=before&&next>0);before=next;}
- const loads=strands.update(1/60,[grip],parent,m,53).loads;assert.ok(loads[0].cameraPull<.05);
+ const recovering=[...strands.states.values()][0];
+ let before=recovering.delta.length();
+ for(let i=0;i<120;i++){strands.update(1/60,[],parent,m,53);const next=recovering.delta.length();assert.ok(next<=before&&next>0);before=next;}
+ let loads;for(let i=0;i<120;i++)loads=strands.update(1/60,[grip],parent,m,53).loads;assert.ok(loads[0].cameraPull<.05);
  strands.clear();assert.equal(parent.children.length,0);assert.equal(strands.states.size,0);
 });
 
@@ -44,4 +45,29 @@ test('tamer strand travel stays below a compact extension even for extreme input
   const target=strandTarget({...grip,drag,cameraPull});assert.ok(Math.hypot(...target.delta)<=1.600001);
  }
  assert.ok(Math.hypot(...strandTarget({...grip,cameraPull:0,drag:[1,0,0]}).delta)<1.1);
+});
+
+
+test('a reused input ID starts a new stretch without taking over the recovering first grab',()=>{
+ const parent=new THREE.Mesh(new THREE.BoxGeometry(),new THREE.MeshPhysicalMaterial()),strands=new StretchStrands();
+ for(let i=0;i<120;i++)strands.update(1/60,[grip],parent,parent.material,53);
+ const firstKey=strands.active.get(grip.stretchId),first=strands.states.get(firstKey),anchor=[...first.point];
+ strands.update(1/60,[],parent,parent.material,53);const before=first.delta.length();
+ const next={...grip,point:[.8,0,1],drag:[-.6,0,0]};
+ strands.update(1/60,[next],parent,parent.material,53);
+ assert.notEqual(strands.active.get(grip.stretchId),firstKey);assert.deepEqual(first.point,anchor);
+ assert.equal(first.held,false);assert.ok(first.delta.length()<before);
+ assert.deepEqual(strands.states.get(strands.active.get(grip.stretchId)).point,next.point);
+ strands.clear();
+});
+test('first-frame emergence is small and grows smoothly in the requested direction',()=>{
+ const parent=new THREE.Mesh(new THREE.BoxGeometry(),new THREE.MeshPhysicalMaterial()),strands=new StretchStrands();
+ const c={...grip,drag:[.7,0,0],cameraPull:0};
+ strands.update(1/60,[c],parent,parent.material,53);const s=[...strands.states.values()][0];
+ assert.ok(s.delta.length()<.1);assert.ok(s.delta.x>0);
+ const p=s.mesh.geometry.attributes.position;let min=Infinity,max=-Infinity;
+ for(let i=0;i<p.count;i++){min=Math.min(min,p.getY(i));max=Math.max(max,p.getY(i));}
+ assert.ok(max-min<.2);
+ const before=s.delta.length();strands.update(1/60,[c],parent,parent.material,53);assert.ok(s.delta.length()>before);
+ strands.clear();
 });

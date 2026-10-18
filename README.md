@@ -248,3 +248,6 @@ Pointer and camera strands now use roughly half the previous extension, a three-
 
 ## Compact tapered pulls (2.29.0)
 The cylindrical shaft is replaced with a continuously narrowing, slightly flattened stretched patch, a broader rooted connection, and a smaller rounded grip. Extension gains are reduced again with a 1.6-half-width cap. Slow release and local bite-mark smoothing remain. Shape checks cover taper, finite normals and bounded travel; visual realism still requires device review.
+
+## Independent stretch lifetimes (2.30.0)
+Each pointer grab and camera pinch receives a fresh stretch identity. Active grips and released, recovering shapes have separate lifetimes, preventing later grabs from moving an old extension. New geometry emerges gradually along the requested pull direction, with the body deformation blended into the added shape rather than switching abruptly. Recovery shrinks the shape nearly flush before disposal. Regression checks cover reused device IDs, fresh pinch identities and small first-frame geometry.

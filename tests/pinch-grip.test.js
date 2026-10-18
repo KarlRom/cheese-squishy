@@ -24,3 +24,10 @@ test('a long grip transports a finger-width cap and underlying material with a t
  assert.ok(p.offset[8]>.7*p.offset[2]);assert.ok(p.offset[11]>.6*p.offset[2]);
  assert.equal(p.offset[14],0);assert.equal(p.offset[17],0);
 });
+
+test('releasing and re-pinching gives the same hand a fresh stretch identity',()=>{
+ const grips=new PinchGrips(),first=grips.update([contact(8,0)])[0];
+ assert.equal(grips.update([contact(8,0)])[0].stretchId,first.stretchId);
+ grips.update([]);const next=grips.update([contact(8,.8)])[0];
+ assert.notEqual(next.stretchId,first.stretchId);assert.deepEqual(next.point,[.8,0,1]);
+});
