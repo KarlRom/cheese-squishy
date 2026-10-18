@@ -36,7 +36,7 @@ export class SquishyMaterial {
     let energy = 0;
     for (let i = 0; i < rest.length; i += 3) {
       const x = rest[i], y = rest[i + 1], z = rest[i + 2];
-      let tx = 0, ty = 0, tz = 0, influence = 0;
+      let tx = 0, ty = 0, tz = 0, influence = 0, extensionLimit = .92;
       for (const c of contacts) {
         const dx = x - c.point[0], dy = y - c.point[1], dz = z - c.point[2];
         const d2 = dx * dx + dy * dy + dz * dz;
@@ -48,7 +48,13 @@ export class SquishyMaterial {
         // A broad, rounded shoulder carries a thick-skin pull into adjacent
         // material instead of stretching a tiny patch into a sharp membrane.
         const core=q*q*q,shoulder=q*q*(3-2*q);
-        const footprint=c.localized?core+(shoulder-core)*(c.thickness||0)*.65:Math.exp(-d2/(2*c.radius*c.radius));
+        const rounded=core+(shoulder-core)*(c.thickness||0)*.65;
+        // A rounded fingertip cap keeps held camera stretches thick.
+        const padT=Math.max(0,Math.min(1,(Math.sqrt(d2)-c.radius*.55)/(c.radius*1.85)));
+        const pad=1-padT*padT*(3-2*padT);
+        const held=Math.max(0,Math.min(1,c.fingerPad||0));
+        const footprint=c.localized?rounded+(pad-rounded)*held:Math.exp(-d2/(2*c.radius*c.radius));
+        extensionLimit=Math.max(extensionLimit,.92+held*.36*footprint);
         const w=footprint*(c.weight??1);
         const depth = c.depth * stiffness;
         const dot = dx * c.normal[0] + dy * c.normal[1] + dz * c.normal[2];
@@ -76,7 +82,7 @@ export class SquishyMaterial {
       }
       // Keep the material intact under multiple overlapping fingers.
       const length = Math.hypot(tx, ty, tz);
-      if (length > 0.92) { const scale = 0.92 / length; tx *= scale; ty *= scale; tz *= scale; }
+      if (length > extensionLimit) { const scale = extensionLimit / length; tx *= scale; ty *= scale; tz *= scale; }
       ty = Math.max(ty, -1.015 - y);
       target[i] = tx; target[i + 1] = ty; target[i + 2] = tz;
       // Untouched vertices retain their old dents even during another press.

@@ -74,3 +74,28 @@ test('reidentified nearby hands cannot duplicate the old held contact',()=>{
   const contact={handId:5,palm:{x:.4,y:.5}};
   assert.equal(retainMissingGrip(contact,[{id:7,palm:{x:.42,y:.51}}],1000,1000),false);
 });
+
+test('held camera pokes and pulls grow exaggerated while short touches stay gentle',()=>{
+  const push={...press,depthControlled:true};
+  const pull={...press,depth:.02,depthControlled:true,cameraPull:.36};
+  const earlyPush=sustain(push,.25).p,latePush=sustain(push,12).p;
+  const earlyPull=sustain(pull,.25).p,latePull=sustain(pull,12).p;
+  assert.ok(latePush.offset[2]<-.72);
+  assert.ok(latePull.offset[2]>.85);
+  assert.ok(Math.abs(latePush.offset[2])>Math.abs(earlyPush.offset[2])*2);
+  assert.ok(latePull.offset[2]>earlyPull.offset[2]*2);
+  for(const p of [latePush,latePull]){
+    assert.equal(p.offset[8],0);assert.equal(p.offset[11],0);
+    assert.ok([...p.offset].every(Number.isFinite));
+  }
+});
+test('held camera pull has a finger-thick cap rather than a pointed tip',()=>{
+  const contact=fingerContact({...press,depth:.02,depthControlled:true,cameraPull:.36,creep:1});
+  const p=new SquishyMaterial(new Float32Array([0,0,1,.18,0,1,.4,0,1,1.6,0,1]));
+  for(let i=0;i<600;i++)p.step(1/60,[contact]);
+  assert.ok(p.offset[5]>.95*p.offset[2]);
+  assert.ok(p.offset[8]>.7*p.offset[2]);
+  assert.equal(p.offset[11],0);
+  let previous=p.offset[2];
+  for(let i=0;i<180;i++){p.step(1/60);assert.ok(p.offset[2]<=previous);assert.ok(p.offset[2]>0);previous=p.offset[2];}
+});
