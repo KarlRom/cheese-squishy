@@ -43,7 +43,7 @@ export class SquishyMaterial {
         const normalDistance=dx*c.normal[0]+dy*c.normal[1]+dz*c.normal[2];
         const lateral2=Math.max(0,d2-normalDistance*normalDistance);
         const travel=Math.hypot(...c.drag)+Math.abs((c.pull||0)-c.depth);
-        const support=c.volumeContact?Math.min(1.5,Math.max(c.radius*2.4,.65+travel*1.15)):c.radius*2.4;
+        const support=c.deepPoke?.72:c.volumeContact?Math.min(1.5,Math.max(c.radius*2.4,.65+travel*1.15)):c.radius*2.4;
         const support2=support*support;
         // Transport a column of material, not just a thin surface patch.
         const volumeDepth=c.volumeContact?Math.max(0,1-Math.abs(normalDistance)/1.65):1;

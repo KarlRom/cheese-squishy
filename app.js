@@ -1,17 +1,17 @@
-import {PinchGrips} from './pinch-grip.js?v=2.23.0';
-import {advanceCreep,retainMissingGrip} from './grip.js?v=2.23.0';
-import {LightingRig,lightingFor} from './lighting.js?v=2.23.0';
-import {toothLayout} from './bite.js?v=2.23.0';
-import {FingerPreview} from './finger-preview.js?v=2.23.0';
+import {PinchGrips} from './pinch-grip.js?v=2.24.0';
+import {advanceCreep,retainMissingGrip} from './grip.js?v=2.24.0';
+import {LightingRig,lightingFor} from './lighting.js?v=2.24.0';
+import {toothLayout} from './bite.js?v=2.24.0';
+import {FingerPreview} from './finger-preview.js?v=2.24.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.23.0';
-import {HandMode} from './hand-mode.js?v=2.23.0';
-import {createBedroom} from './room.js?v=2.23.0';
+import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.24.0';
+import {HandMode} from './hand-mode.js?v=2.24.0';
+import {createBedroom} from './room.js?v=2.24.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.23.0';
+import { SquishyMaterial } from './physics.js?v=2.24.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -570,7 +570,7 @@ function handLoads(now,dt){
     const retreat=pinching?(hand.depth.pullTravel??hand.depth.pull):0;
     const pressDepth=pinching?.07+(hand.depth.pushTravel??hand.depth.push)*.34:.10+finger.strength*.32+(hand.depth.pushTravel??hand.depth.push)*.18;
     contact.depth=pressDepth*(1-Math.min(1,retreat)*.96);
-    contact.pinching=pinching;contact.cameraPull=retreat*.36;contact.depthControlled=true;contact.scrunch=false;
+    contact.deepPoke=!pinching;contact.pinching=pinching;contact.cameraPull=retreat*.36;contact.depthControlled=true;contact.scrunch=false;
     setRay(x,y);const point=raycaster.ray.intersectPlane(contact.plane,new THREE.Vector3());
     if(point){
       contact.drag=point.sub(contact.start).clampLength(0,pinching?1.2:.075).multiplyScalar(pinching?.90:1).toArray();
@@ -603,7 +603,7 @@ function handLoads(now,dt){
     const contact=rawLoads[i],load=loads[i];
     if(contact.missingSince!==null&&contact.lastLoad)loads[i]=contact.lastLoad;
     else contact.lastLoad={point:load.point,normal:load.normal,drag:load.drag,radius:load.radius,depth:load.depth,
-      handId:load.handId,tip:load.tip,pinching:load.pinching,creep:load.creep,scrunch:load.scrunch,depthControlled:load.depthControlled,cameraPull:load.cameraPull};
+      deepPoke:load.deepPoke,handId:load.handId,tip:load.tip,pinching:load.pinching,creep:load.creep,scrunch:load.scrunch,depthControlled:load.depthControlled,cameraPull:load.cameraPull};
   }
   return {contacts:pinchGrips.update(loads)};
 }
@@ -807,7 +807,7 @@ function animate(now) {
   for(const c of active) {
     const held=Math.min((now-c.started)/1000,1.8);
     c.depth=.13+.25*(1-Math.exp(-held*2.4))+Math.max(0,(c.pressure||.5)-.5)*.12;
-    c.creep=advanceCreep(c.creep,dt,c);
+    c.deepPoke=true;c.creep=advanceCreep(c.creep,dt,c);
   }
   const hands=handLoads(now,dt);active.push(...hands.contacts,...biteLoads(now));
   const keyboardAuto=now<squeezeUntil||heldKey;

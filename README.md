@@ -230,3 +230,6 @@ The shared plaster on both room walls smoothly changes with the lighting: ivory 
 
 ## Persistent thick camera grips (2.23.0)
 Thumb and index now share one persistent material attachment instead of dividing pinch strength across overlapping contacts. Its anchor persists until release and survives a tracked fingertip visibility swap. Held camera contacts transport a finger-width cap plus a smoothly supported column of nearby material; the opposite side stays outside the deformation support. Depth travel remains expressive beyond the old normalized gesture ceiling. Closer hands deepen finger pokes, and retreating pinches stretch outward. This is a volume-shaped deformation field, not a full volumetric rubber solver. Soft limits and tracking-loss safeguards remain. Synthetic tests cover merged grips, anchors, extended depth, thick caps and release; real camera feel still requires device testing.
+
+## Deep finger-sized held pokes (2.24.0)
+Holding a stationary click, touch, or camera poke progressively forms a deep indentation with a finger-width rounded bottom and compact supporting rim. Dragging transitions back to the thick stretch field. Release retains slow recovery. Synthetic tests check click/camera depth, width, locality and monotonic release; real device feel needs testing.
