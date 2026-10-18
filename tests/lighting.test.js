@@ -6,7 +6,7 @@ function rig(){
   const renderer={toneMappingExposure:1},hemisphere=new THREE.HemisphereLight(),key=new THREE.DirectionalLight(),fill=new THREE.DirectionalLight();
   const bedroom=new THREE.Group(),roomMaterial=new THREE.MeshStandardMaterial();
   bedroom.add(new THREE.Mesh(new THREE.BoxGeometry(1,1,1),roomMaterial));
-  bedroom.userData.lighting={window:new THREE.MeshBasicMaterial(),patch:new THREE.MeshBasicMaterial(),shade:roomMaterial,lamp:new THREE.PointLight()};
+  bedroom.userData.lighting={walls:new THREE.MeshStandardMaterial(),window:new THREE.MeshBasicMaterial(),patch:new THREE.MeshBasicMaterial(),shade:roomMaterial,lamp:new THREE.PointLight()};
   const toys=new Map([['cheese',{material:new THREE.MeshPhysicalMaterial({color:0xffd865})}],['pearl',{material:new THREE.MeshPhysicalMaterial({color:0xfffaf5})}]]);
   const background={};
   const lighting=new LightingRig({renderer,hemisphere,key,fill,bedroom,toys,onBackground:(color,id)=>{background.color=color.clone();background.id=id;}});
@@ -60,4 +60,16 @@ test('background follows the lighting preset and blends with it without flashes 
   assert.equal(h.background.color.getHex(),0x302b38);
   h.lighting.set('dim',true);assert.equal(h.background.color.getHex(),0xd8dde5);
   h.lighting.set('daylight',true);assert.equal(h.background.color.getHex(),0xffffff);
+});
+
+test('wall plaster blends with every lighting mood and restores its daylight color',()=>{
+  const h=rig(),walls=h.bedroom.userData.lighting.walls;
+  assert.equal(walls.color.getHex(),0xf0ede7);
+  for(const id of ['dim','sunset','cozy','daylight']){
+    const before=walls.color.clone(),target=new THREE.Color(lightingFor(id).wall);
+    h.lighting.set(id);h.lighting.step(1/60);
+    assert.ok(!walls.color.equals(before));assert.ok(!walls.color.equals(target));
+    for(let i=0;i<300;i++)h.lighting.step(1/60);
+    assert.equal(walls.color.getHex(),lightingFor(id).wall);
+  }
 });

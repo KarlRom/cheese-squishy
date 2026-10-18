@@ -1,12 +1,12 @@
 import * as THREE from './vendor/three.module.js';
 export const lightingPresets={
-  daylight:{label:'Daylight',background:0xffffff,sky:0xfff9e9,ground:0xd6bd8a,ambient:1,key:0xfff9ed,keyPower:3,position:[-3,6,5],fill:0xffffff,fillPower:.7,environment:1,exposure:1,window:0xf6f9fc,patch:.32,lamp:0},
-  dim:{label:'Dim',background:0xd8dde5,sky:0xdfe6f3,ground:0x8b8591,ambient:.34,key:0xe5eaff,keyPower:.80,position:[-3,5,4],fill:0xd0d9ed,fillPower:.22,environment:.30,exposure:.90,window:0x596477,patch:.07,lamp:.05},
-  sunset:{label:'Sunset',background:0xf6d2bb,sky:0xffdec7,ground:0xac7c78,ambient:.65,key:0xffac68,keyPower:2.8,position:[-5,1.5,4],fill:0xe3d9ff,fillPower:.38,environment:.62,exposure:.97,window:0xffb47c,patch:.38,lamp:.18},
-  cozy:{label:'Cozy night',background:0x302b38,sky:0xeed2b6,ground:0x705970,ambient:.30,key:0xffc18c,keyPower:1.25,position:[2,2.8,3.5],fill:0xb4bfdf,fillPower:.17,environment:.23,exposure:.92,window:0x2b354b,patch:.025,lamp:1.6}
+  daylight:{wall:0xf0ede7,label:'Daylight',background:0xffffff,sky:0xfff9e9,ground:0xd6bd8a,ambient:1,key:0xfff9ed,keyPower:3,position:[-3,6,5],fill:0xffffff,fillPower:.7,environment:1,exposure:1,window:0xf6f9fc,patch:.32,lamp:0},
+  dim:{wall:0xaeb8cb,label:'Dim',background:0xd8dde5,sky:0xdfe6f3,ground:0x8b8591,ambient:.34,key:0xe5eaff,keyPower:.80,position:[-3,5,4],fill:0xd0d9ed,fillPower:.22,environment:.30,exposure:.90,window:0x596477,patch:.07,lamp:.05},
+  sunset:{wall:0xf2c4a5,label:'Sunset',background:0xf6d2bb,sky:0xffdec7,ground:0xac7c78,ambient:.65,key:0xffac68,keyPower:2.8,position:[-5,1.5,4],fill:0xe3d9ff,fillPower:.38,environment:.62,exposure:.97,window:0xffb47c,patch:.38,lamp:.18},
+  cozy:{wall:0x837082,label:'Cozy night',background:0x302b38,sky:0xeed2b6,ground:0x705970,ambient:.30,key:0xffc18c,keyPower:1.25,position:[2,2.8,3.5],fill:0xb4bfdf,fillPower:.17,environment:.23,exposure:.92,window:0x2b354b,patch:.025,lamp:1.6}
 };
 export function lightingFor(id){return Object.prototype.hasOwnProperty.call(lightingPresets,id)?lightingPresets[id]:lightingPresets.daylight;}
-const colorKeys=['background','sky','ground','key','fill','window'];
+const colorKeys=['background','sky','ground','key','fill','window','wall'];
 const numberKeys=['ambient','keyPower','fillPower','environment','exposure','patch','lamp'];
 export class LightingRig{
   constructor({renderer,hemisphere,key,fill,bedroom,toys,onBackground=()=>{}}){
@@ -55,6 +55,7 @@ export class LightingRig{
     for(const material of this.roomMaterials)material.envMapIntensity=c.environment;
     const room=this.bedroom.userData.lighting;
     if(room){
+      if(room.walls)room.walls.color.copy(c.wall);
       room.window.color.copy(c.window);room.patch.color.copy(c.key);room.patch.opacity=c.patch;
       room.shade.emissive.set(0xffb66d);room.shade.emissiveIntensity=c.lamp;
       room.lamp.intensity=c.lamp*8;

@@ -81,6 +81,6 @@ export function createBedroom(oak=oakTexture()){
   patch.position.set(-6.1,1.1,-8.88);patch.rotation.z=-.17;room.add(patch);
   const lamp=new THREE.PointLight(0xffbd83,0,14,2);
   lamp.position.set(.65,-2.25,-7);room.add(lamp);
-  room.userData.lighting={window:daylight,patch:patchMaterial,shade:shade.material,lamp};
+  room.userData.lighting={walls:plaster,window:daylight,patch:patchMaterial,shade:shade.material,lamp};
   room.userData.oak=oak;return room;
 }

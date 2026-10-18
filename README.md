@@ -224,3 +224,6 @@ Sustained pressure and stretch recruit a broader region over several seconds, in
 
 ## Exaggerated held camera contacts (2.21.0)
 Sustained camera pokes and pulls progressively deepen or extend farther, with a rounded fingertip cap and supporting shoulder to keep the rubber thick. Brief touches retain their gentler response. The hold remains active until gesture release; tracking-loss safeguards still apply. Soft strain limits protect the mesh, and recovery remains slow and overdamped. Automated synthetic contact checks cover amplitude, cap thickness, locality and release; real webcam and signed-device feel require device testing.
+
+## Wall lighting moods (2.22.0)
+The shared plaster on both room walls smoothly changes with the lighting: ivory daylight, cool blue-gray dim, peach sunset, and muted mauve cozy night. Returning to daylight restores the original plaster color.
