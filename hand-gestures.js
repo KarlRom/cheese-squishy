@@ -21,7 +21,7 @@ export class HandGestures{
     const available=[...this.slots],output=[];
     const alpha=this.lastTime?1-Math.exp(-clamp((time-this.lastTime)/1000,.001,.2)/.065):1;
     for(const hand of hands){
-      const x=hand.curl>.65?1-hand.palm.x:hand.x,y=hand.curl>.65?hand.palm.y:hand.y;
+      const x=hand.x,y=hand.y;
       let nearest=-1,best=Infinity;
       for(let i=0;i<available.length;i++){
         const d=Math.hypot(available[i].x-x,available[i].y-y);

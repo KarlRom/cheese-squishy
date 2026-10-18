@@ -1,10 +1,11 @@
-import {HandMode} from './hand-mode.js?v=2.7.0';
+import {fingerContact} from './fingertips.js?v=2.8.0';
+import {HandMode} from './hand-mode.js?v=2.8.0';
 import {createBedroom} from './room.js?v=2.5.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.6.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js';
+import { SquishyMaterial } from './physics.js?v=2.8.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -235,7 +236,7 @@ function resize() {
 new ResizeObserver(resize).observe(stage); resize();
 const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2();
 const contacts = new Map();
-let pinch = null, pinchStart = null, squeezeUntil = 0, heldKey = false, keyboardPoint = [0,.12,1];
+let squeezeUntil = 0, heldKey = false, keyboardPoint = [0,.12,1];
 let buttonGesture=null, squeezeIndex=0;
 let lastStatus = '', uiClock = 0, lastTime = 0, frameHandle = 0, paused = false;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -279,9 +280,9 @@ function beginContact(event) {
   });
   normal.normalize();
   const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),hit.point);
-  contacts.set(event.pointerId,{ point: anchor.toArray(), normal: normal.toArray(), drag: [0,0,0], radius: event.pointerType==='mouse'?.50:.59,
+  contacts.set(event.pointerId,{ point: anchor.toArray(), normal: normal.toArray(), drag: [0,0,0], radius: event.pointerType==='mouse'?.21:.24,
     depth: .1, pressure: event.pressure, started: performance.now(), start: hit.point.clone(), plane, x: event.clientX,y: event.clientY });
-  updatePinch(true); announce('Let it melt into your fingers.');
+  announce('Let it melt into your fingers.');
 }
 function moveContact(event) {
   const orbit=orbitPointers.get(event.pointerId);
@@ -305,18 +306,8 @@ function moveContact(event) {
   c.moveTime=moveTime; c.x=event.clientX; c.y=event.clientY; c.pressure=event.pressure;
   setRay(event.clientX,event.clientY);
   const p = raycaster.ray.intersectPlane(c.plane,new THREE.Vector3());
-  if (p) c.drag = p.sub(c.start).clampLength(0,.72).multiplyScalar(.72).toArray();
-  updatePinch(false);
-}
-function updatePinch(start) {
-  if (contacts.size < 2) { pinch = null; pinchStart = null; return; }
-  const [a,b] = [...contacts.values()];
-  const dx=b.x-a.x, dy=b.y-a.y, distance=Math.hypot(dx,dy);
-  if (start || !pinchStart) pinchStart=Math.max(distance,40);
-  const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0);
-  const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1);
-  const axis = right.multiplyScalar(dx).addScaledVector(up,-dy).normalize().toArray();
-  pinch={axis,amount:THREE.MathUtils.clamp(1-distance/pinchStart,0,.65)};
+  if (p) c.drag = p.sub(c.start).clampLength(0,1.2).multiplyScalar(.90).toArray();
+
 }
 function endContact(event) {
   if(orbitPointers.delete(event.pointerId)){
@@ -328,7 +319,7 @@ function endContact(event) {
   if (!contacts.delete(event.pointerId)) return;
   if(event.type==='pointerup')void sound.touch('release',Math.min(.95,.55+(performance.now()-releasedContact.started)/2500));
   if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-  updatePinch(true);
+
   if (!contacts.size) announce('Letting go, very slowly.');
 }
 canvas.addEventListener('pointerdown',beginContact);
@@ -372,7 +363,7 @@ function reset() {
   clearGestures();clearHandContacts(); resetView();
   sound.silence();
   for (const id of contacts.keys()) if (canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
-  contacts.clear(); pinch=null; pinchStart=null; heldKey=false; squeezeUntil=0;
+  contacts.clear(); heldKey=false; squeezeUntil=0;
   physics.reset(); physics.writePositions(geometry.attributes.position.array);
   geometry.attributes.position.needsUpdate=true; geometry.computeVertexNormals();
   needsRender=true; announce(`${selectedToy.name} reset.`);
@@ -410,7 +401,7 @@ canvas.addEventListener('keyup',event=>{ if (event.code==='Space'||event.key==='
 canvas.addEventListener('blur',()=>{heldKey=false;});
 function clearGestures(){
   const ids=[...contacts.keys(),...orbitPointers.keys()];
-  contacts.clear();orbitPointers.clear();zoomStart=null;pinch=null;pinchStart=null;heldKey=false;squeezeUntil=0;buttonGesture=null;sound.silence();
+  contacts.clear();orbitPointers.clear();zoomStart=null;heldKey=false;squeezeUntil=0;buttonGesture=null;sound.silence();
   for(const id of ids)if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);
 }
 function setMode(mode){
@@ -471,11 +462,11 @@ function animateToySlide(dt){
     mesh.position.set(0,0,0);toySlide=null;shadow.position.x=.1;shadow.position.z=.05;updateIntroUI();
   }
 }
-let handSamples=[],handSampleTime=0,handPairStart=null;
+let handSamples=[],handSampleTime=0;
 const handContacts=new Map(),handMisses=new Map();
 function clearHandContacts(){
   if(handContacts.size&&handMode.active){void sound.touch('release',.45);}
-  handContacts.clear();handMisses.clear();handPairStart=null;
+  handContacts.clear();handMisses.clear();
 }
 const handMode=new HandMode({video:$('hand-video'),overlay:$('hand-overlay'),
   onHands:hands=>{handSamples=hands;handSampleTime=performance.now();if(!hands.length)clearHandContacts();},
@@ -497,7 +488,7 @@ $('hands-toggle').addEventListener('click',()=>{
 });
 $('stop-hands').addEventListener('click',()=>handMode.stop());
 function handLoads(now){
-  const empty={contacts:[],pinch:null,squeeze:0};
+  const empty={contacts:[]};
   if(!handMode.active){clearHandContacts();return empty;}
   const fresh=handMode.active&&now-handSampleTime<350;
   const usable=fresh&&!isTransitioning()&&!contacts.size&&!orbitPointers.size;
@@ -516,7 +507,7 @@ function handLoads(now){
     return empty;
   }
   if(introPhase!=='ready'||interactionMode!=='squish'){clearHandContacts();return empty;}
-  const ids=new Set();let squeeze=0;
+  const ids=new Set();
   for(const sample of handSamples){
     if(!sample.gripping)continue;
     const x=rect.left+sample.x*rect.width,y=rect.top+sample.y*rect.height;
@@ -533,25 +524,17 @@ function handLoads(now){
         anchor.addScaledVector(new THREE.Vector3().fromArray(rest,index*3),bary.getComponent(i));
         normal.addScaledVector(new THREE.Vector3().fromArray(restNormals,index*3),bary.getComponent(i));
       });
-      contact={point:anchor.toArray(),normal:normal.normalize().toArray(),drag:[0,0,0],radius:.55,depth:0,
+      contact={point:anchor.toArray(),normal:normal.normalize().toArray(),drag:[0,0,0],radius:.22,depth:0,
         start:hit.point.clone(),plane:new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),hit.point)};
       handContacts.set(sample.id,contact);void sound.touch('press',.6);
     }
-    ids.add(sample.id);contact.depth=.15+sample.strength*.62;contact.x=x;contact.y=y;
+    ids.add(sample.id);contact.depth=.12+sample.strength*.32;contact.x=x;contact.y=y;
     const point=raycaster.ray.intersectPlane(contact.plane,new THREE.Vector3());
-    if(point)contact.drag=point.sub(contact.start).clampLength(0,.8).multiplyScalar(.72).toArray();
-    if(sample.closed)squeeze=Math.max(squeeze,sample.strength*.58);
+    if(point)contact.drag=point.sub(contact.start).clampLength(0,1.2).multiplyScalar(.90).toArray();
+
   }
   for(const id of handContacts.keys())if(!ids.has(id)){handContacts.delete(id);void sound.touch('release',.55);}
-  let handPinch=null;
-  if(handContacts.size===2){
-    const [a,b]=[...handContacts.values()],dx=b.x-a.x,dy=b.y-a.y,distance=Math.hypot(dx,dy);
-    if(handPairStart===null)handPairStart=Math.max(40,distance);
-    const axis=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0).multiplyScalar(dx)
-      .addScaledVector(new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1),-dy).normalize();
-    handPinch={axis:axis.toArray(),amount:THREE.MathUtils.clamp(1-distance/handPairStart,0,.62)};
-  }else handPairStart=null;
-  return {contacts:[...handContacts.values()],pinch:handPinch,squeeze};
+  return {contacts:[...handContacts.values()]};
 }
 function updateIntroUI(){
   document.body.dataset.scene=introPhase;
@@ -674,28 +657,28 @@ function animate(now) {
   const active=[...contacts.values()];
   for(const c of active) {
     const held=Math.min((now-c.started)/1000,1.8);
-    c.depth=.24+.39*(1-Math.exp(-held*2)) + Math.max(0,(c.pressure||.5)-.5)*.25;
+    c.depth=.13+.25*(1-Math.exp(-held*2.4))+Math.max(0,(c.pressure||.5)-.5)*.12;
   }
   const hands=handLoads(now);active.push(...hands.contacts);
   const keyboardAuto=now<squeezeUntil||heldKey;
-  if(keyboardAuto)active.push({point:keyboardPoint,normal:[0,0,1],drag:[0,-.10,0],radius:.62,depth:.38});
+  if(keyboardAuto)active.push({point:keyboardPoint,normal:[0,0,1],drag:[0,-.10,0],radius:.23,depth:.36});
   if(buttonGesture&&now-buttonGesture.started>=buttonGesture.profile.duration)buttonGesture=null;
-  let autoPinch=null,autoSquash=(keyboardAuto&&!reducedMotion?.72:0)+hands.squeeze;
+  let autoPinch=null,autoSquash=0;
   if(buttonGesture){
     const {profile,started}=buttonGesture;
     const amount=.2+.8*(1-Math.exp(-(now-started)/170));
     for(const c of profile.contacts)active.push({...c,depth:c.depth*amount,drag:c.drag.map(v=>v*amount)});
     if(!reducedMotion){
-      autoPinch=profile.pinch?{axis:profile.pinch.axis,amount:profile.pinch.amount*amount}:null;
-      autoSquash+=profile.squeeze*amount;
+      autoPinch=profile.pinch?{axis:profile.pinch.axis,amount:profile.pinch.amount*amount*.15}:null;
+      autoSquash+=profile.squeeze*amount*.15;
     }
   }
   const auto=keyboardAuto||!!buttonGesture||handContacts.size>0;
-  const effectivePinch=pinch||hands.pinch||autoPinch;
+  const effectivePinch=autoPinch;
   const soundLoad=active.reduce((sum,c)=>sum+c.depth,0)+autoSquash*.3;
   sound.update(dt,soundLoad,effectivePinch?.amount||0);
   if(active.length||effectivePinch||physics.activity>.00002) {
-    physics.step(dt,active,effectivePinch,autoSquash);
+    physics.step(dt,active.map(fingerContact),effectivePinch,autoSquash);
     if(!active.length&&!effectivePinch&&physics.activity<=.00002)physics.reset();
     physics.writePositions(geometry.attributes.position.array);
     geometry.attributes.position.needsUpdate=true; geometry.computeVertexNormals();

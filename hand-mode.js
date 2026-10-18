@@ -1,4 +1,4 @@
-import {HandGestures} from './hand-gestures.js';
+import {HandGestures} from './hand-gestures.js?v=2.8.0';
 export class HandMode{
   constructor({video,overlay,onHands,onStatus}){
     Object.assign(this,{video,overlay,onHands,onStatus});
@@ -33,7 +33,7 @@ export class HandMode{
       });
       if(token!==this.session)return;
       this.active=true;this.busy=false;this.lastSent=0;this.lastVideoTime=-1;
-      this.status('active','Move dots onto the toy. Pinch to grab; close your hand to squeeze.');
+      this.status('active','Move dots onto the toy. Pinch to dent and pull; open your fingers to release.');
       worker.onerror=()=>this.fail(token,'Hand tracking stopped. You can retry or use touch.');
       worker.onmessage=({data})=>{
         if(token!==this.session)return;
