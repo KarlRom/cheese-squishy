@@ -251,3 +251,6 @@ The cylindrical shaft is replaced with a continuously narrowing, slightly flatte
 
 ## Independent stretch lifetimes (2.30.0)
 Each pointer grab and camera pinch receives a fresh stretch identity. Active grips and released, recovering shapes have separate lifetimes, preventing later grabs from moving an old extension. New geometry emerges gradually along the requested pull direction, with the body deformation blended into the added shape rather than switching abruptly. Recovery shrinks the shape nearly flush before disposal. Regression checks cover reused device IDs, fresh pinch identities and small first-frame geometry.
+
+## Connected surface pulls (2.31.0)
+Removed the separate strand meshes. Pointer and camera pulls now deform only the original connected squishy surface, with a restrained camera grip extension and broad smooth support. Deep pokes, persistent grip anchors, slow recovery and local bite-mark smoothing remain. Regression tests check connected vertex continuity, ordered surface vertices and restrained actual camera-grip displacement. Visual appearance remains unverified on-device.

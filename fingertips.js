@@ -14,7 +14,8 @@ export function fingerContact(contact){
   const deepPoke=!!contact.deepPoke&&!contact.scrunch&&length<.12&&!(contact.cameraPull>0);
   const pokeHold=deepPoke?creep:0;
   const cameraHold=contact.depthControlled&&!contact.scrunch?creep:0;
-  const lift=contact.depthControlled?Math.max(0,Math.min(2.35,(contact.cameraPull||0)*(1+creep*.5+cameraHold*2.4))):0;
+  const attachedPull=contact.stretchId!==undefined;
+  const lift=contact.depthControlled?Math.max(0,Math.min(attachedPull?.8:2.35,(contact.cameraPull||0)*(1+creep*.5+cameraHold*(attachedPull?.5:2.4)))):0;
   const thickness=Math.max(creep*.8,1-Math.exp(-Math.max(stretch,lift*2.5)/.28));
   const travel=contact.scrunch?length:Math.min(length,(.40+creep*.20)*Math.tanh(length/(.55+creep*.10)));
   const dragScale=length>0?travel/length:1;

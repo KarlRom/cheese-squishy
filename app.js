@@ -1,20 +1,18 @@
-import {StretchStrands} from './stretch-strands.js?v=2.30.0';
-const stretchStrands=new StretchStrands();
 let pointerGripSequence=0;
-import {PinchGrips} from './pinch-grip.js?v=2.30.0';
-import {advanceCreep,retainMissingGrip} from './grip.js?v=2.30.0';
-import {LightingRig,lightingFor} from './lighting.js?v=2.30.0';
-import {toothLayout} from './bite.js?v=2.30.0';
-import {FingerPreview} from './finger-preview.js?v=2.30.0';
+import {PinchGrips} from './pinch-grip.js?v=2.31.0';
+import {advanceCreep,retainMissingGrip} from './grip.js?v=2.31.0';
+import {LightingRig,lightingFor} from './lighting.js?v=2.31.0';
+import {toothLayout} from './bite.js?v=2.31.0';
+import {FingerPreview} from './finger-preview.js?v=2.31.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.30.0';
-import {HandMode} from './hand-mode.js?v=2.30.0';
-import {createBedroom} from './room.js?v=2.30.0';
+import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.31.0';
+import {HandMode} from './hand-mode.js?v=2.31.0';
+import {createBedroom} from './room.js?v=2.31.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.30.0';
+import { SquishyMaterial } from './physics.js?v=2.31.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -384,7 +382,7 @@ function reset() {
   sound.silence();
   for (const id of contacts.keys()) if (canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
   contacts.clear(); heldKey=false; squeezeUntil=0;
-  stretchStrands.clear();physics.reset(); physics.writePositions(geometry.attributes.position.array);
+  physics.reset(); physics.writePositions(geometry.attributes.position.array);
   geometry.attributes.position.needsUpdate=true; geometry.computeVertexNormals();
   needsRender=true; announce(`${selectedToy.name} reset.`);
 }
@@ -454,7 +452,6 @@ function selectToy(id){
   if(id===selectedToy.id||isTransitioning())return;
   clearGestures();
   clearHandContacts();clearBiteInput();handMode.bites.reset();
-  stretchStrands.clear();
   const outgoing=mesh,previous=selectedToy.id,outBase=mesh.position.clone();
   tableBody=null;
   selectedToy=toyFor(id);
@@ -831,10 +828,8 @@ function animate(now) {
   const effectivePinch=autoPinch;
   const soundLoad=active.reduce((sum,c)=>sum+c.depth,0)+autoSquash*.3;
   sound.update(dt,soundLoad,effectivePinch?.amount||0);
-  const strands=stretchStrands.update(dt,active,mesh,material,physics.recoveryTime);
-  if(strands.changed)needsRender=true;
   if(active.length||effectivePinch||physics.activity>.00002) {
-    physics.step(dt,balanceContacts(strands.loads.map(fingerContact)),effectivePinch,autoSquash);
+    physics.step(dt,balanceContacts(active.map(fingerContact)),effectivePinch,autoSquash);
     if(!active.length&&!effectivePinch&&physics.activity<=.00002)physics.settle();
     physics.writePositions(geometry.attributes.position.array);
     geometry.attributes.position.needsUpdate=true; geometry.computeVertexNormals();
