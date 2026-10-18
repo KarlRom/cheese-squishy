@@ -75,3 +75,26 @@ test('adaptive filtering reduces idle jitter and follows deliberate finger movem
   for(let i=20;i<24;i++)tracker.update([hand({dx:.15})],i*50);
   const x=tracker.slots[0].fingers[1].x;assert.ok(Math.abs(x-(1-.4-.15))<.025);
 });
+
+test('a loose three-finger scrunch engages before a tight fist and releases on opening',()=>{
+  const tracker=new HandGestures(),open=hand(),fist=hand({fist:true});
+  const loose=open.map((p,i)=>({...p,y:p.y+(fist[i].y-p.y)*.60}));
+  tracker.update([open],0);
+  let grip;
+  for(let i=1;i<=6;i++)grip=tracker.update([loose],i*50)[0];
+  assert.equal(grip.closed,true);assert.ok(grip.scrunchStrength>.15&&grip.scrunchStrength<.9);
+  assert.ok(grip.fingers.every(f=>f.pressing));
+  const released=tracker.update([open],400)[0];
+  assert.equal(released.closed,false);assert.equal(released.gripping,false);
+  assert.ok(released.fingers.every(f=>!f.pressing));
+});
+test('gradual closure changes scrunch strength smoothly and remains scale independent',()=>{
+  const tracker=new HandGestures();tracker.update([hand()],0);
+  const first=tracker.update([hand({fist:true})],50)[0];
+  const next=tracker.update([hand({fist:true})],100)[0];
+  assert.ok(first.scrunchStrength>0&&first.scrunchStrength<next.scrunchStrength);
+  assert.ok(next.scrunchStrength-first.scrunchStrength<.3);
+  const small=new HandGestures().update([hand({fist:true,scale:.6})],100)[0];
+  const large=new HandGestures().update([hand({fist:true})],100)[0];
+  assert.ok(Math.abs(small.scrunchStrength-large.scrunchStrength)<1e-10);
+});

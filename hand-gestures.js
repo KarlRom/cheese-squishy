@@ -31,7 +31,7 @@ export function describeHand(points,aspect=4/3){
     const curl=i===0?0:extensionCurl*.8+(angle??extensionCurl)*.2;
     return {name:names[i],tip,x:1-points[tip].x,y:points[tip].y,curl};
   });
-  const curl=fingers.slice(2).reduce((sum,f)=>sum+f.curl/3,0);
+  const curl=fingers.slice(1).reduce((sum,f)=>sum+f.curl/4,0);
   const palm=[0,5,9,13,17].reduce((a,i)=>({x:a.x+points[i].x/5,y:a.y+points[i].y/5}),{x:0,y:0});
   return {pinchRatio,curl,palm,fingers,x:1-(points[4].x+points[8].x)/2,y:(points[4].y+points[8].y)/2};
 }
@@ -52,16 +52,21 @@ export class HandGestures{
     if(hands.length===1&&previous.length===2)order=[...previous].sort((a,b)=>cost(hands[0],a)-cost(hands[0],b));
     const dt=this.lastTime?clamp((time-this.lastTime)/1000,.005,.15):.05;
     const output=hands.map((hand,i)=>{
-      const old=order[i],pinched=hand.pinchRatio<(old?.pinched ? .52 : .34),closed=hand.curl>(old?.closed ? .45 : .65);
+      const old=order[i],pinched=hand.pinchRatio<(old?.pinched ? .52 : .34);
+      // A loose multi-finger curl is enough; an isolated bent finger still presses alone.
+      const curled=hand.fingers.slice(1).filter(f=>f.curl>(old?.closed ? .22 : .35)).length;
+      const closed=curled>=2&&hand.curl>(old?.closed ? .18 : .30);
+      const target=closed?clamp((hand.curl-.16)/.68):0;
+      const scrunchStrength=(old?.scrunchStrength??target)+(target-(old?.scrunchStrength??target))*(1-Math.exp(-dt/.085));
       const point=smooth(hand,old,time-(old?.seen??time)>120?.15:dt);
       const fingers=hand.fingers.map((finger,j)=>{
         const before=old?.fingers?.[j],position=smooth(finger,before,dt);
-        const pressing=(j<2&&pinched)||(j>0&&finger.curl>(before?.pressing ? .47 : .67));
+        const pressing=closed||(j<2&&pinched)||(j>0&&finger.curl>(before?.pressing ? .40 : .57));
         return {...finger,...position,x:clamp(position.x),y:clamp(position.y),pressing,
-          strength:pressing?Math.max(j<2&&pinched?clamp(1-hand.pinchRatio/.65):0,finger.curl):0};
+          strength:pressing?Math.max(j<2&&pinched?clamp(1-hand.pinchRatio/.65):0,finger.curl,closed?scrunchStrength:0):0};
       });
       return {id:old?.id??this.nextId++,label:hand.label||old?.label,palm:hand.palm,seen:time,...point,
-        x:clamp(point.x),y:clamp(point.y),pinched,closed,fingers,
+        x:clamp(point.x),y:clamp(point.y),pinched,closed,scrunchStrength,fingers,
         gripping:pinched||closed||fingers.some(f=>f.pressing),strength:Math.max(0,...fingers.map(f=>f.strength))};
     });
     this.slots=[...output,...previous.filter(old=>!output.some(slot=>slot.id===old.id))].slice(0,2);

@@ -1,13 +1,13 @@
-import {FingerPreview} from './finger-preview.js?v=2.10.0';
+import {FingerPreview} from './finger-preview.js?v=2.11.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {fingerContact,balanceContacts} from './fingertips.js?v=2.10.0';
-import {HandMode} from './hand-mode.js?v=2.10.0';
+import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.11.0';
+import {HandMode} from './hand-mode.js?v=2.11.0';
 import {createBedroom} from './room.js?v=2.5.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.10.0';
+import { SquishyMaterial } from './physics.js?v=2.11.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -514,12 +514,12 @@ function handLoads(now){
     if(rayBudget<=0)return freshRequired?null:cached?.attachment;
     rayBudget--;
     setRay(x,y);const hit=raycaster.intersectObject(mesh)[0];
-    if(!hit){fingerHits.set(key,{stamp,attachment:null});return null;}
+    if(!hit){fingerHits.set(key,{...cached,stamp,attachment:null});return null;}
     const triangle=[hit.face.a,hit.face.b,hit.face.c];
     const bary=THREE.Triangle.getBarycoord(hit.point,
       ...triangle.map(index=>new THREE.Vector3().fromBufferAttribute(geometry.attributes.position,index)),new THREE.Vector3());
     const attachment={triangle,bary:bary.toArray(),hit:hit.point.clone()};
-    fingerHits.set(key,{stamp,attachment});return attachment;
+    fingerHits.set(key,{stamp,attachment,lastAttachment:attachment,lastSeen:now});return attachment;
   }
   const ids=new Set();let pressed=0,released=0,tablePick=false;
   const entries=handSamples.flatMap(hand=>(hand.fingers||[]).map(finger=>({hand,finger})));
@@ -532,7 +532,8 @@ function handLoads(now){
     const key=`${hand.id}:${finger.tip}`,x=rect.left+finger.x*rect.width,y=rect.top+finger.y*rect.height;
     let contact=handContacts.get(key);
     if(contact&&(!usable||!finger.pressing||waitingForRelease))contact=null;
-    const attachment=contact||probe(key,x,y,finger.pressing&&usable);
+    const attachment=contact||probe(key,x,y,finger.pressing&&usable)||
+      (usable&&!waitingForRelease?recentGripHit(fingerHits.get(key),now,hand.closed):null);
     if(attachment)fingerMarkers.push({key,handId:hand.id,attachment,pressing:!!contact});
     if(!attachment)continue;
     if(introPhase==='table'&&!waitingForRelease&&finger.pressing){tablePick=true;continue;}
@@ -543,11 +544,11 @@ function handLoads(now){
         anchor.addScaledVector(new THREE.Vector3().fromArray(rest,index*3),attachment.bary[i]);
         normal.addScaledVector(new THREE.Vector3().fromArray(restNormals,index*3),attachment.bary[i]);
       });
-      contact={...attachment,point:anchor.toArray(),normal:normal.normalize().toArray(),drag:[0,0,0],radius:finger.tip===4?.22:.18,depth:0,
+      contact={...attachment,point:anchor.toArray(),normal:normal.normalize().toArray(),drag:[0,0,0],radius:finger.tip===4?.22:.18,depth:0,handId:hand.id,tip:finger.tip,
         start:attachment.hit.clone(),plane:new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),attachment.hit)};
       handContacts.set(key,contact);pressed++;
     }
-    ids.add(key);contact.depth=.10+finger.strength*.32;
+    ids.add(key);contact.depth=.10+finger.strength*.32;contact.scrunch=false;
     setRay(x,y);const point=raycaster.ray.intersectPlane(contact.plane,new THREE.Vector3());
     if(point){
       const pinching=hand.pinched&&(finger.tip===4||finger.tip===8);
@@ -558,7 +559,20 @@ function handLoads(now){
   for(const key of handContacts.keys())if(!ids.has(key)){handContacts.delete(key);released++;}
   if(pressed)void sound.touch('press',.55);else if(released)void sound.touch('release',.45);
   if(tablePick){fingerMarkers=[];pickUp();return empty;}
-  return {contacts:[...handContacts.values()]};
+  const loads=[...handContacts.values()];
+  for(const hand of handSamples){
+    if(!hand.closed)continue;
+    const group=loads.filter(c=>c.handId===hand.id);
+    if(!group.length)continue;
+    const center=[0,1,2].map(i=>group.reduce((sum,c)=>sum+c.point[i],0)/group.length);
+    for(let i=0;i<loads.length;i++){
+      const c=loads[i];
+      // A deliberate thumb/index pinch retains its local sticky pull.
+      if(c.handId===hand.id&&!(hand.pinched&&(c.tip===4||c.tip===8)))
+        loads[i]=scrunchContact(c,center,hand.scrunchStrength);
+    }
+  }
+  return {contacts:loads};
 }
 function drawFingerPreviews(){
   fingerPreview.begin();

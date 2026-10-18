@@ -45,3 +45,37 @@ test('five overlapping fingertips share pressure instead of multiplying it',asyn
   for(let i=0;i<90;i++)many.step(1/60,contacts);
   for(let i=0;i<one.offset.length;i++)assert.ok(Math.abs(one.offset[i]-many.offset[i])<1e-6);
 });
+
+test('scrunching gathers two surface patches inward without outward pull or moving the center',async()=>{
+  const {scrunchContact,balanceContacts}=await import('../fingertips.js');
+  const vertices=new Float32Array([-.6,0,1,0,0,1,.6,0,1,0,0,-1]);
+  const p=new SquishyMaterial(vertices);
+  const contacts=[-.6,.6].map(x=>fingerContact(scrunchContact({...press,point:[x,0,1]},[0,0,1],.75)));
+  assert.ok(contacts.every(c=>c.pull===0));
+  for(let i=0;i<90;i++)p.step(1/60,balanceContacts(contacts));
+  assert.ok(p.offset[0]>.08);assert.ok(p.offset[6]<-.08);
+  assert.ok(p.offset[2]<-.10&&p.offset[8]<-.10);
+  assert.equal(p.offset[3],0);assert.equal(p.offset[11],0);
+  let before=p.offset.slice();
+  for(let i=0;i<90;i++){
+    p.step(1/60);
+    for(let j=0;j<before.length;j++)assert.ok(Math.abs(p.offset[j])<=Math.abs(before[j])+1e-8);
+    before=p.offset.slice();
+  }
+});
+test('scrunch gathering is tangential, bounded and keeps the gentler strength scale',async()=>{
+  const {scrunchContact}=await import('../fingertips.js');
+  const c=scrunchContact(press,[100,0,100],5),f=fingerContact(c);
+  assert.equal(c.drag[2],0);assert.ok(Math.hypot(...c.drag)<=.22+1e-10);
+  assert.equal(f.pull,0);assert.equal(f.drag[0],c.drag[0]*.85);
+  assert.ok(f.depth<=.40*.85);
+});
+test('grips may use recent surface hits during closure but never stale or absent hits',async()=>{
+  const {recentGripHit}=await import('../fingertips.js');
+  const attachment={triangle:[0,1,2],bary:[.3,.4,.3]};
+  const cached={lastAttachment:attachment,lastSeen:100};
+  assert.equal(recentGripHit(cached,450,true),attachment);
+  assert.equal(recentGripHit(cached,501,true),null);
+  assert.equal(recentGripHit(cached,200,false),null);
+  assert.equal(recentGripHit(undefined,200,true),null);
+});
