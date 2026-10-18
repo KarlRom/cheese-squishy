@@ -39,3 +39,39 @@ test('invalid, distant, and malformed hands produce no loads',()=>{
   const tracker=new HandGestures();
   assert.deepEqual(tracker.update([[],hand({scale:.01}),Array(21).fill({x:NaN,y:0})],0),[]);
 });
+
+test('two hands expose ten named, separate fingertip targets',()=>{
+  const tracker=new HandGestures(),slots=tracker.update([hand({dx:-.2}),hand({dx:.2})],10);
+  assert.equal(slots.flatMap(h=>h.fingers).length,10);
+  assert.deepEqual(slots[0].fingers.map(f=>f.tip),[4,8,12,16,20]);
+  assert.ok(slots[0].fingers.every(f=>Number.isFinite(f.x)&&Number.isFinite(f.y)));
+  assert.notEqual(slots[0].fingers[0].x,slots[0].fingers[1].x);
+});
+test('curling one middle finger activates its own contact while other fingers stay open',()=>{
+  const points=hand();points[12]={x:.5,y:.69,z:0};points[10]={x:.5,y:.43,z:0};
+  const slot=new HandGestures().update([points],10)[0];
+  assert.equal(slot.fingers[2].pressing,true);
+  assert.equal(slot.fingers[1].pressing,false);assert.equal(slot.fingers[3].pressing,false);assert.equal(slot.fingers[4].pressing,false);
+});
+test('hand labels preserve identities through a crossing',()=>{
+  const tracker=new HandGestures(),labels=[[{categoryName:'Left',score:.99}],[{categoryName:'Right',score:.99}]];
+  const before=tracker.update([hand({dx:-.2}),hand({dx:.2})],0,4/3,labels);
+  const after=tracker.update([hand({dx:.2}),hand({dx:-.2})],60,4/3,labels);
+  assert.equal(after[0].id,before[0].id);assert.equal(after[1].id,before[1].id);
+});
+test('a second arriving hand does not steal the existing hand identity',()=>{
+  const tracker=new HandGestures(),left=[{categoryName:'Left',score:.99}],right=[{categoryName:'Right',score:.99}];
+  const original=tracker.update([hand({dx:.2})],0,4/3,[right])[0];
+  const both=tracker.update([hand({dx:-.2}),hand({dx:.2})],60,4/3,[left,right]);
+  assert.equal(both[1].id,original.id);assert.notEqual(both[0].id,original.id);
+});
+test('adaptive filtering reduces idle jitter and follows deliberate finger movement',()=>{
+  const tracker=new HandGestures();let last,largest=0;
+  for(let i=0;i<20;i++){
+    const h=tracker.update([hand({dx:i%2?.003:-.003})],i*50)[0];
+    const x=h.fingers[1].x;if(last!==undefined)largest=Math.max(largest,Math.abs(x-last));last=x;
+  }
+  assert.ok(largest<.006);
+  for(let i=20;i<24;i++)tracker.update([hand({dx:.15})],i*50);
+  const x=tracker.slots[0].fingers[1].x;assert.ok(Math.abs(x-(1-.4-.15))<.025);
+});

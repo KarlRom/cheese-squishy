@@ -1,4 +1,4 @@
-import {HandGestures} from './hand-gestures.js?v=2.8.0';
+import {HandGestures} from './hand-gestures.js?v=2.10.0';
 export class HandMode{
   constructor({video,overlay,onHands,onStatus}){
     Object.assign(this,{video,overlay,onHands,onStatus});
@@ -13,14 +13,14 @@ export class HandMode{
     }
     this.status('starting','Allow camera access to use your hands.');
     try{
-      const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user',width:{ideal:640},height:{ideal:480},frameRate:{ideal:20,max:24}}});
+      const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user',width:{ideal:960},height:{ideal:720},frameRate:{ideal:24,max:30}}});
       if(token!==this.session){stream.getTracks().forEach(t=>t.stop());return;}
       this.stream=stream;
       stream.getVideoTracks().forEach(track=>track.addEventListener('ended',()=>{if(token===this.session)this.stop();},{once:true}));
       this.video.srcObject=stream;await this.video.play();
       if(token!==this.session)return;
       this.status('starting','Loading hand tracking… First use may take a moment.');
-      const worker=new Worker(new URL('./hand-worker.js',document.baseURI));this.worker=worker;
+      const worker=new Worker(new URL('./hand-worker.js?v=2.10.0',document.baseURI));this.worker=worker;
       await new Promise((resolve,reject)=>{
         this.rejectInit=reject;
         const timer=setTimeout(()=>reject(new Error('load')),40000);this.initTimer=timer;
@@ -32,8 +32,8 @@ export class HandMode{
         worker.postMessage({type:'init'});
       });
       if(token!==this.session)return;
-      this.active=true;this.busy=false;this.lastSent=0;this.lastVideoTime=-1;
-      this.status('active','Move dots onto the toy. Pinch to dent and pull; open your fingers to release.');
+      this.active=true;this.busy=false;this.lastSent=0;this.lastVideoTime=-1;this.frameInterval=50;
+      this.status('active','Outline dots show your fingertips; filled dots press. Curl to dent; pinch and move to pull.');
       worker.onerror=()=>this.fail(token,'Hand tracking stopped. You can retry or use touch.');
       worker.onmessage=({data})=>{
         if(token!==this.session)return;
@@ -41,14 +41,15 @@ export class HandMode{
         if(data.type==='result'){
           this.busy=false;
           if(performance.now()-data.time>400){this.gestures.reset();this.onHands([]);return;}
-          const hands=this.gestures.update(data.landmarks,performance.now(),this.video.videoWidth/Math.max(1,this.video.videoHeight));
-          this.draw(data.landmarks);this.onHands(hands);
+          const hands=this.gestures.update(data.landmarks,performance.now(),this.video.videoWidth/Math.max(1,this.video.videoHeight),data.handedness);
+          this.frameInterval=Math.max(50,Math.min(110,this.frameInterval*.8+(performance.now()-data.time)*.22));
+          this.draw(data.landmarks,hands);this.onHands(hands);
         }
       };
       const frame=async(now)=>{
         if(token!==this.session||!this.active)return;
         this.frameHandle=requestAnimationFrame(frame);
-        if(this.busy||now-this.lastSent<65||this.video.readyState<2||this.lastVideoTime===this.video.currentTime)return;
+        if(this.busy||now-this.lastSent<this.frameInterval||this.video.readyState<2||this.lastVideoTime===this.video.currentTime)return;
         this.busy=true;this.lastSent=now;this.lastVideoTime=this.video.currentTime;
         try{
           const bitmap=await createImageBitmap(this.video);
@@ -63,16 +64,17 @@ export class HandMode{
       this.fail(token,message);
     }
   }
-  draw(landmarks){
+  draw(landmarks,hands=[]){
     const canvas=this.overlay,ctx=canvas.getContext('2d');
     const w=canvas.width=320,h=canvas.height=240;ctx.clearRect(0,0,w,h);
-    for(const points of landmarks){
-      ctx.lineWidth=2;ctx.strokeStyle='rgba(255,255,255,.8)';ctx.beginPath();
-      for(const [a,b] of [[0,5],[5,9],[9,13],[13,17],[17,0],[4,8]]){
+    for(const [handIndex,points] of landmarks.entries()){
+      if(points.length!==21||points.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y)))continue;
+      ctx.lineWidth=2;ctx.strokeStyle=(hands[handIndex]?.id||0)%2?'#d3bedf':'#f4deb5';ctx.beginPath();
+      for(const [a,b] of [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[0,17],[17,18],[18,19],[19,20]]){
         ctx.moveTo((1-points[a].x)*w,points[a].y*h);ctx.lineTo((1-points[b].x)*w,points[b].y*h);
       }
       ctx.stroke();
-      for(const i of [4,8,12,16,20]){ctx.beginPath();ctx.arc((1-points[i].x)*w,points[i].y*h,4,0,Math.PI*2);ctx.fillStyle='#fff6dd';ctx.fill();}
+      for(const [fingerIndex,i] of [4,8,12,16,20].entries()){ctx.beginPath();ctx.arc((1-points[i].x)*w,points[i].y*h,4,0,Math.PI*2);ctx.fillStyle=hands[handIndex]?.fingers[fingerIndex]?.pressing?ctx.strokeStyle:'#ffffff';ctx.fill();}
     }
   }
   fail(token,message){if(token!==this.session)return;this.stop();this.status('error',message);}

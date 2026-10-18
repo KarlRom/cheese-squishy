@@ -32,7 +32,8 @@ export class SquishyMaterial {
         if(d2>(c.localized?support2:c.radius*c.radius*12))continue;
         // Compact fingertip support has zero displacement and slope at its edge.
         // A second press cannot tug on a distant dent or the opposite face.
-        const w=c.localized?Math.max(0,1-d2/support2)**3:Math.exp(-d2/(2*c.radius*c.radius));
+        const footprint=c.localized?Math.max(0,1-d2/support2)**3:Math.exp(-d2/(2*c.radius*c.radius));
+        const w=footprint*(c.weight??1);
         const depth = c.depth * stiffness;
         const dot = dx * c.normal[0] + dy * c.normal[1] + dz * c.normal[2];
         // Local compression, tangential drag, and a soft displaced rim.
@@ -41,7 +42,7 @@ export class SquishyMaterial {
         tx += -c.normal[0] * normalLoad * w + (dx - dot * c.normal[0]) * bulge + c.drag[0] * w;
         ty += -c.normal[1] * normalLoad * w + (dy - dot * c.normal[1]) * bulge + c.drag[1] * w;
         tz += -c.normal[2] * normalLoad * w + (dz - dot * c.normal[2]) * bulge + c.drag[2] * w;
-        influence = Math.max(influence, w);
+        influence = Math.max(influence, footprint);
       }
       if (pinch && pinch.amount > 0) {
         const a = pinch.axis, along = x * a[0] + y * a[1] + z * a[2];

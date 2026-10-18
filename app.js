@@ -1,12 +1,13 @@
+import {FingerPreview} from './finger-preview.js?v=2.10.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {fingerContact} from './fingertips.js?v=2.9.1';
-import {HandMode} from './hand-mode.js?v=2.8.0';
+import {fingerContact,balanceContacts} from './fingertips.js?v=2.10.0';
+import {HandMode} from './hand-mode.js?v=2.10.0';
 import {createBedroom} from './room.js?v=2.5.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.8.0';
+import { SquishyMaterial } from './physics.js?v=2.10.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -226,6 +227,7 @@ const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
 const shadow = new THREE.Mesh(new THREE.PlaneGeometry(4.3,3.7),new THREE.MeshBasicMaterial({ map: shadowTexture, transparent: true, depthWrite: false, toneMapped: false }));
 shadow.rotation.x = -Math.PI/2; shadow.position.set(.1,-1.035,.05); scene.add(shadow);
 const bedroom=createBedroom();scene.add(bedroom);
+const fingerPreview=new FingerPreview(scene);
 scene.fog=new THREE.Fog(0xffffff,18,45);
 tableBody=new TableBody(geometry.attributes.position.array,{kind:selectedToy.id}).rest();tableBody.apply(mesh);
 
@@ -470,10 +472,11 @@ function animateToySlide(dt){
   }
 }
 let handSamples=[],handSampleTime=0,handNeedsRelease=false;
-const handContacts=new Map(),handMisses=new Map();
+const handContacts=new Map(),fingerHits=new Map();
+let fingerMarkers=[],fingerProbeTurn=0;
 function clearHandContacts(){
   if(handContacts.size&&handMode.active){void sound.touch('release',.45);}
-  handContacts.clear();handMisses.clear();
+  handContacts.clear();fingerHits.clear();
 }
 const handMode=new HandMode({video:$('hand-video'),overlay:$('hand-overlay'),
   onHands:hands=>{handSamples=hands;handSampleTime=performance.now();if(!hands.length)clearHandContacts();},
@@ -485,7 +488,7 @@ const handMode=new HandMode({video:$('hand-video'),overlay:$('hand-overlay'),
     $('hand-hint').textContent=phase==='error'?message:'Camera video stays on your device. No recording or microphone.';
     if(phase!=='active'){
       handSamples=[];clearHandContacts();
-      for(const dot of document.querySelectorAll('.hand-cursor'))dot.hidden=true;
+      fingerMarkers=[];needsRender=fingerPreview.clear()||needsRender;
     }
   }
 });
@@ -495,57 +498,72 @@ $('hands-toggle').addEventListener('click',()=>{
 });
 $('stop-hands').addEventListener('click',()=>handMode.stop());
 function handLoads(now){
-  const empty={contacts:[]};
-  if(!handMode.active){clearHandContacts();return empty;}
-  const fresh=handMode.active&&now-handSampleTime<350;
-  const usable=fresh&&!isTransitioning()&&!contacts.size&&!orbitPointers.size;
+  const empty={contacts:[]};fingerMarkers=[];
+  const fresh=handMode.active&&now-handSampleTime<250;
+  if(!fresh||isTransitioning()){clearHandContacts();return empty;}
   const rect=canvas.getBoundingClientRect();
-  const dots=[$('hand-cursor-0'),$('hand-cursor-1')];
-  for(let i=0;i<2;i++){
-    const sample=handSamples[i],dot=dots[i];dot.hidden=!fresh||!sample||isTransitioning();
-    if(sample){dot.style.left=`${sample.x*100}%`;dot.style.top=`${sample.y*100}%`;dot.classList.toggle('gripping',sample.gripping);}
+  const usable=!contacts.size&&!orbitPointers.size&&introPhase==='ready'&&interactionMode==='squish';
+  let waitingForRelease=handNeedsRelease&&handSamples.some(hand=>hand.gripping);
+  if(handNeedsRelease&&!waitingForRelease)handNeedsRelease=false;
+  const stamp=`${handSampleTime}|${canvas.dataset.view}|${canvas.dataset.zoom}|${selectedToy.id}|${introPhase}`;
+  mesh.updateMatrixWorld();
+  let rayBudget=2; // Spread ten precise surface tests over frames instead of stalling rendering.
+  function probe(key,x,y,freshRequired){
+    const cached=fingerHits.get(key);
+    if(cached?.stamp===stamp)return cached.attachment;
+    if(rayBudget<=0)return freshRequired?null:cached?.attachment;
+    rayBudget--;
+    setRay(x,y);const hit=raycaster.intersectObject(mesh)[0];
+    if(!hit){fingerHits.set(key,{stamp,attachment:null});return null;}
+    const triangle=[hit.face.a,hit.face.b,hit.face.c];
+    const bary=THREE.Triangle.getBarycoord(hit.point,
+      ...triangle.map(index=>new THREE.Vector3().fromBufferAttribute(geometry.attributes.position,index)),new THREE.Vector3());
+    const attachment={triangle,bary:bary.toArray(),hit:hit.point.clone()};
+    fingerHits.set(key,{stamp,attachment});return attachment;
   }
-  if(!usable){clearHandContacts();return empty;}
-  if(handNeedsRelease){
-    if(handSamples.some(sample=>sample.gripping))return empty;
-    handNeedsRelease=false;
-  }
-  if(introPhase==='table'){
-    for(const sample of handSamples)if(sample.gripping){
-      setRay(rect.left+sample.x*rect.width,rect.top+sample.y*rect.height);
-      mesh.updateMatrixWorld();if(raycaster.intersectObject(mesh).length){pickUp();break;}
-    }
-    return empty;
-  }
-  if(introPhase!=='ready'||interactionMode!=='squish'){clearHandContacts();return empty;}
-  const ids=new Set();
-  for(const sample of handSamples){
-    if(!sample.gripping)continue;
-    const x=rect.left+sample.x*rect.width,y=rect.top+sample.y*rect.height;
-    setRay(x,y);let contact=handContacts.get(sample.id);
+  const ids=new Set();let pressed=0,released=0,tablePick=false;
+  const entries=handSamples.flatMap(hand=>(hand.fingers||[]).map(finger=>({hand,finger})));
+  const rotate=list=>{const offset=fingerProbeTurn%Math.max(1,list.length);return [...list.slice(offset),...list.slice(0,offset)];};
+  const ordered=[...rotate(entries.filter(e=>e.finger.pressing)),...rotate(entries.filter(e=>!e.finger.pressing))];
+  fingerProbeTurn+=2;
+  const visibleKeys=new Set(entries.map(({hand,finger})=>`${hand.id}:${finger.tip}`));
+  for(const key of fingerHits.keys())if(!visibleKeys.has(key))fingerHits.delete(key);
+  for(const {hand,finger} of ordered){
+    const key=`${hand.id}:${finger.tip}`,x=rect.left+finger.x*rect.width,y=rect.top+finger.y*rect.height;
+    let contact=handContacts.get(key);
+    if(contact&&(!usable||!finger.pressing||waitingForRelease))contact=null;
+    const attachment=contact||probe(key,x,y,finger.pressing&&usable);
+    if(attachment)fingerMarkers.push({key,handId:hand.id,attachment,pressing:!!contact});
+    if(!attachment)continue;
+    if(introPhase==='table'&&!waitingForRelease&&finger.pressing){tablePick=true;continue;}
+    if(!usable||waitingForRelease||!finger.pressing)continue;
     if(!contact){
-      if(handMisses.get(sample.id)===handSampleTime)continue;
-      mesh.updateMatrixWorld();const hit=raycaster.intersectObject(mesh)[0];if(!hit){handMisses.set(sample.id,handSampleTime);continue;}
-      const bary=THREE.Triangle.getBarycoord(hit.point,
-        new THREE.Vector3().fromBufferAttribute(geometry.attributes.position,hit.face.a),
-        new THREE.Vector3().fromBufferAttribute(geometry.attributes.position,hit.face.b),
-        new THREE.Vector3().fromBufferAttribute(geometry.attributes.position,hit.face.c),new THREE.Vector3());
       const anchor=new THREE.Vector3(),normal=new THREE.Vector3();
-      [hit.face.a,hit.face.b,hit.face.c].forEach((index,i)=>{
-        anchor.addScaledVector(new THREE.Vector3().fromArray(rest,index*3),bary.getComponent(i));
-        normal.addScaledVector(new THREE.Vector3().fromArray(restNormals,index*3),bary.getComponent(i));
+      attachment.triangle.forEach((index,i)=>{
+        anchor.addScaledVector(new THREE.Vector3().fromArray(rest,index*3),attachment.bary[i]);
+        normal.addScaledVector(new THREE.Vector3().fromArray(restNormals,index*3),attachment.bary[i]);
       });
-      contact={point:anchor.toArray(),normal:normal.normalize().toArray(),drag:[0,0,0],radius:.22,depth:0,
-        start:hit.point.clone(),plane:new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),hit.point)};
-      handContacts.set(sample.id,contact);void sound.touch('press',.6);
+      contact={...attachment,point:anchor.toArray(),normal:normal.normalize().toArray(),drag:[0,0,0],radius:finger.tip===4?.22:.18,depth:0,
+        start:attachment.hit.clone(),plane:new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),attachment.hit)};
+      handContacts.set(key,contact);pressed++;
     }
-    ids.add(sample.id);contact.depth=.12+sample.strength*.32;contact.x=x;contact.y=y;
-    const point=raycaster.ray.intersectPlane(contact.plane,new THREE.Vector3());
-    if(point)contact.drag=point.sub(contact.start).clampLength(0,1.2).multiplyScalar(.90).toArray();
-
+    ids.add(key);contact.depth=.10+finger.strength*.32;
+    setRay(x,y);const point=raycaster.ray.intersectPlane(contact.plane,new THREE.Vector3());
+    if(point){
+      const pinching=hand.pinched&&(finger.tip===4||finger.tip===8);
+      contact.drag=point.sub(contact.start).clampLength(0,pinching?1.2:.075).multiplyScalar(pinching?.90:1).toArray();
+    }
+    const marker=fingerMarkers[fingerMarkers.length-1];marker.attachment=contact;marker.pressing=true;
   }
-  for(const id of handContacts.keys())if(!ids.has(id)){handContacts.delete(id);void sound.touch('release',.55);}
+  for(const key of handContacts.keys())if(!ids.has(key)){handContacts.delete(key);released++;}
+  if(pressed)void sound.touch('press',.55);else if(released)void sound.touch('release',.45);
+  if(tablePick){fingerMarkers=[];pickUp();return empty;}
   return {contacts:[...handContacts.values()]};
+}
+function drawFingerPreviews(){
+  fingerPreview.begin();
+  for(const marker of fingerMarkers)fingerPreview.show(marker.key,marker.handId,marker.attachment,mesh,camera,stage.clientHeight,marker.pressing);
+  needsRender=fingerPreview.end()||needsRender;
 }
 function updateIntroUI(){
   document.body.dataset.scene=introPhase;
@@ -698,7 +716,7 @@ function animate(now) {
   const soundLoad=active.reduce((sum,c)=>sum+c.depth,0)+autoSquash*.3;
   sound.update(dt,soundLoad,effectivePinch?.amount||0);
   if(active.length||effectivePinch||physics.activity>.00002) {
-    physics.step(dt,active.map(fingerContact),effectivePinch,autoSquash);
+    physics.step(dt,balanceContacts(active.map(fingerContact)),effectivePinch,autoSquash);
     if(!active.length&&!effectivePinch&&physics.activity<=.00002)physics.reset();
     physics.writePositions(geometry.attributes.position.array);
     geometry.attributes.position.needsUpdate=true; geometry.computeVertexNormals();
@@ -715,6 +733,7 @@ function animate(now) {
     needsRender=true;
     if(dropStart?.complete)finishDrop();
   }
+  drawFingerPreviews();
   if(needsRender){
     if(!tableBody)shadow.scale.set(1+physics.activity*.45,1+physics.activity*.45,1);
     renderer.render(scene,camera); needsRender=false;

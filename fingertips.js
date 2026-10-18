@@ -10,3 +10,16 @@ export function fingerContact(contact){
     depth:Math.min(.46,Math.max(0,contact.depth??.34))*(1-Math.min(.68,length*.65))*FINGER_STRENGTH,
     pull:Math.min(.48,Math.max(0,length-.08)*.62)*FINGER_STRENGTH};
 }
+
+// Overlapping fingers share a pressure budget. Separated fingertips retain
+// individual dents; coincident fingertips cannot multiply the deformation.
+export function balanceContacts(contacts){
+  return contacts.map(contact=>{
+    let density=0;
+    for(const other of contacts){
+      const distance2=contact.point.reduce((sum,v,i)=>sum+(v-other.point[i])**2,0);
+      density+=Math.exp(-distance2/(2*.22*.22));
+    }
+    return {...contact,weight:1/Math.max(1,density)};
+  });
+}

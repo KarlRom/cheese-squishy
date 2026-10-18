@@ -147,3 +147,12 @@ The landing shadow follows the toy and becomes stronger as it approaches the tab
 
 ## Gentler fingertip response (2.9.1)
 Fingertip press depth, drag strength and outward pull are scaled to 85% of their previous values. Contact footprint, slow recovery, and table gravity/rolling are unchanged.
+
+## Ten fingertip previews and multi-hand input (2.10.0)
+Hand mode now returns five separate fingertip positions per hand (up to two hands). Move fingertips over the toy: outline dots preview the surface location, filled dots indicate an active press, and gold/lavender distinguish the two tracked hands. Preview points attach to actual mesh triangles and move with their deformation. The camera inset shows the full finger skeleton.
+
+Curl individual fingers to press. Pinch thumb and index finger and move to stretch; unpinched curls press without making large accidental pulls. Overlapping contact points share pressure rather than stacking the same dent repeatedly. The previous 15% gentler fingertip response is retained.
+
+Detection uses adaptive smoothing, gesture hysteresis, handedness plus palm-position assignment, brief identity retention for reacquisition, a higher-resolution camera request, and an adaptive inference cadence. Detailed mesh ray tests are limited to two per rendering frame and staggered across fingertips; active grabs retain their precise surface attachment. Hover dots can update over several frames when all ten fingers are present. Camera processing and all landmarks stay on the device.
+
+This improves the input pipeline; it does not turn the camera into a force sensor or provide measured finger-to-object depth. Strength and intent remain estimates from finger shape. Real camera accuracy, occlusion behavior, and phone performance still require device testing. Automated checks use synthetic hand poses and mesh attachments.

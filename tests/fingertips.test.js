@@ -37,3 +37,11 @@ test('a released fingertip pull recovers slowly without overshoot',()=>{
   }
   assert.ok(p.offset[0]>.5);
 });
+
+test('five overlapping fingertips share pressure instead of multiplying it',async()=>{
+  const {balanceContacts}=await import('../fingertips.js');
+  const one=loaded(press),many=new SquishyMaterial(rest);
+  const contacts=balanceContacts(Array.from({length:5},()=>fingerContact(press)));
+  for(let i=0;i<90;i++)many.step(1/60,contacts);
+  for(let i=0;i<one.offset.length;i++)assert.ok(Math.abs(one.offset[i]-many.offset[i])<1e-6);
+});
