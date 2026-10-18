@@ -14,7 +14,7 @@ export class PinchGrips {
     for(const [id,group] of groups){
       let anchor=this.grips.get(id);
       if(!anchor){const c=group.find(c=>c.tip===8)||group[0];anchor={point:[...c.point],normal:[...c.normal]};this.grips.set(id,anchor);}
-      result.push({...group[0],...anchor,radius:.21,
+      result.push({...group[0],...anchor,stretchId:`hand:${id}`,radius:.21,
         drag:[0,1,2].map(i=>group.reduce((sum,c)=>sum+c.drag[i],0)/group.length),
         depth:Math.max(...group.map(c=>c.depth)),cameraPull:Math.max(...group.map(c=>c.cameraPull||0)),
         creep:Math.max(...group.map(c=>c.creep||0))});

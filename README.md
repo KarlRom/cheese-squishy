@@ -236,3 +236,6 @@ Holding a stationary click, touch, or camera poke progressively forms a deep ind
 
 ## Smaller poke craters (2.25.0)
 Held click, touch and camera pokes retain their depth with a narrower rounded bottom and a one-third smaller surrounding crater radius. Pull grips retain their wider support.
+
+## Long cheese-pull strands (2.26.0)
+Camera pinch-and-retreat and pointer drag now generate a dedicated 64-ring, 24-sided stretch mesh. It maintains a finger-thick shaft and rounded cap, with a flared root buried into the body and a matching material. Travel can reach six cube half-widths; the main body supplies a small rooted shoulder instead of carrying the entire extension. Held creep adds length, and release retracts slowly without bounce. Reset and toy switching dispose the added meshes. New contacts target the original body mesh; the strand is a visual extension rather than a separate grabbable soft body or a full collision/volume simulation. Automated geometry tests cover length, thickness, outward faces, finite normals and release; visual and real-camera testing remain unverified.

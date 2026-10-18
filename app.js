@@ -1,17 +1,19 @@
-import {PinchGrips} from './pinch-grip.js?v=2.25.0';
-import {advanceCreep,retainMissingGrip} from './grip.js?v=2.25.0';
-import {LightingRig,lightingFor} from './lighting.js?v=2.25.0';
-import {toothLayout} from './bite.js?v=2.25.0';
-import {FingerPreview} from './finger-preview.js?v=2.25.0';
+import {StretchStrands} from './stretch-strands.js?v=2.26.0';
+const stretchStrands=new StretchStrands();
+import {PinchGrips} from './pinch-grip.js?v=2.26.0';
+import {advanceCreep,retainMissingGrip} from './grip.js?v=2.26.0';
+import {LightingRig,lightingFor} from './lighting.js?v=2.26.0';
+import {toothLayout} from './bite.js?v=2.26.0';
+import {FingerPreview} from './finger-preview.js?v=2.26.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.25.0';
-import {HandMode} from './hand-mode.js?v=2.25.0';
-import {createBedroom} from './room.js?v=2.25.0';
+import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.26.0';
+import {HandMode} from './hand-mode.js?v=2.26.0';
+import {createBedroom} from './room.js?v=2.26.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.25.0';
+import { SquishyMaterial } from './physics.js?v=2.26.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -267,7 +269,7 @@ function beginContact(event) {
   if (contacts.size >= 4 || event.button > 2 || event.button===1) return;
   setRay(event.clientX,event.clientY);
   mesh.updateMatrixWorld();
-  const hit = raycaster.intersectObject(mesh)[0];
+  const hit = raycaster.intersectObject(mesh,false)[0];
   if(isTransitioning()){event.preventDefault();return;}
   if(introPhase!=='ready'){
     event.preventDefault();if(introPhase==='table'&&hit&&event.button!==2)pickUp();return;
@@ -297,7 +299,7 @@ function beginContact(event) {
   });
   normal.normalize();
   const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),hit.point);
-  contacts.set(event.pointerId,{ point: anchor.toArray(), normal: normal.toArray(), drag: [0,0,0], radius: event.pointerType==='mouse'?.21:.24,
+  contacts.set(event.pointerId,{ stretchId:`pointer:${event.pointerId}`,point: anchor.toArray(), normal: normal.toArray(), drag: [0,0,0], radius: event.pointerType==='mouse'?.21:.24,
     depth: .1, pressure: event.pressure, started: performance.now(), start: hit.point.clone(), plane, x: event.clientX,y: event.clientY });
   announce('Let it melt into your fingers.');
 }
@@ -381,7 +383,7 @@ function reset() {
   sound.silence();
   for (const id of contacts.keys()) if (canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
   contacts.clear(); heldKey=false; squeezeUntil=0;
-  physics.reset(); physics.writePositions(geometry.attributes.position.array);
+  stretchStrands.clear();physics.reset(); physics.writePositions(geometry.attributes.position.array);
   geometry.attributes.position.needsUpdate=true; geometry.computeVertexNormals();
   needsRender=true; announce(`${selectedToy.name} reset.`);
 }
@@ -451,6 +453,7 @@ function selectToy(id){
   if(id===selectedToy.id||isTransitioning())return;
   clearGestures();
   clearHandContacts();clearBiteInput();handMode.bites.reset();
+  stretchStrands.clear();
   const outgoing=mesh,previous=selectedToy.id,outBase=mesh.position.clone();
   tableBody=null;
   selectedToy=toyFor(id);
@@ -530,7 +533,7 @@ function handLoads(now,dt){
     if(cached?.stamp===stamp)return cached.attachment;
     if(rayBudget<=0)return freshRequired?null:cached?.attachment;
     rayBudget--;
-    setRay(x,y);const hit=raycaster.intersectObject(mesh)[0];
+    setRay(x,y);const hit=raycaster.intersectObject(mesh,false)[0];
     if(!hit){fingerHits.set(key,{...cached,stamp,attachment:null});return null;}
     const triangle=[hit.face.a,hit.face.b,hit.face.c];
     const bary=THREE.Triangle.getBarycoord(hit.point,
@@ -609,7 +612,7 @@ function handLoads(now,dt){
 }
 // Surface projection is tested only when a new camera result arrives.
 function mouthHit(x,y){
-  setRay(x,y);const hit=raycaster.intersectObject(mesh)[0];if(!hit)return null;
+  setRay(x,y);const hit=raycaster.intersectObject(mesh,false)[0];if(!hit)return null;
   const triangle=[hit.face.a,hit.face.b,hit.face.c];
   const bary=THREE.Triangle.getBarycoord(mesh.worldToLocal(hit.point.clone()),
     ...triangle.map(i=>new THREE.Vector3().fromBufferAttribute(geometry.attributes.position,i)),new THREE.Vector3()).toArray();
@@ -827,8 +830,10 @@ function animate(now) {
   const effectivePinch=autoPinch;
   const soundLoad=active.reduce((sum,c)=>sum+c.depth,0)+autoSquash*.3;
   sound.update(dt,soundLoad,effectivePinch?.amount||0);
+  const strands=stretchStrands.update(dt,active,mesh,material,physics.recoveryTime);
+  if(strands.changed)needsRender=true;
   if(active.length||effectivePinch||physics.activity>.00002) {
-    physics.step(dt,balanceContacts(active.map(fingerContact)),effectivePinch,autoSquash);
+    physics.step(dt,balanceContacts(strands.loads.map(fingerContact)),effectivePinch,autoSquash);
     if(!active.length&&!effectivePinch&&physics.activity<=.00002)physics.settle();
     physics.writePositions(geometry.attributes.position.array);
     geometry.attributes.position.needsUpdate=true; geometry.computeVertexNormals();
