@@ -46,3 +46,10 @@ test('depth smoothing ramps instead of snapping and repeated frames do not accum
   const later=run(.75,true,settled,3300,50);
   assert.ok(Math.abs(later.pull-settled.pull)<1e-5);
 });
+test('extended depth travel remains expressive beyond the old normalized ceiling',()=>{
+ const base=run(1),pinch=run(1,true,base,750);
+ const away=run(.6,true,pinch,1500),farther=run(.4,true,away,2250);
+ assert.equal(away.pull,1);assert.equal(farther.pull,1);assert.ok(farther.pullTravel>away.pullTravel);
+ const near=run(1.7,false,base,750),nearer=run(2.2,false,near,1500);
+ assert.ok(nearer.pushTravel>near.pushTravel);assert.equal(run(.4,false,farther,3000).pullTravel,0);
+});

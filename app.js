@@ -1,16 +1,17 @@
-import {advanceCreep,retainMissingGrip} from './grip.js?v=2.22.0';
-import {LightingRig,lightingFor} from './lighting.js?v=2.22.0';
-import {toothLayout} from './bite.js?v=2.22.0';
-import {FingerPreview} from './finger-preview.js?v=2.22.0';
+import {PinchGrips} from './pinch-grip.js?v=2.23.0';
+import {advanceCreep,retainMissingGrip} from './grip.js?v=2.23.0';
+import {LightingRig,lightingFor} from './lighting.js?v=2.23.0';
+import {toothLayout} from './bite.js?v=2.23.0';
+import {FingerPreview} from './finger-preview.js?v=2.23.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.22.0';
-import {HandMode} from './hand-mode.js?v=2.22.0';
-import {createBedroom} from './room.js?v=2.22.0';
+import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.23.0';
+import {HandMode} from './hand-mode.js?v=2.23.0';
+import {createBedroom} from './room.js?v=2.23.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.22.0';
+import { SquishyMaterial } from './physics.js?v=2.23.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -484,9 +485,9 @@ function animateToySlide(dt){
 let handSamples=[],handSampleTime=0,handNeedsRelease=false;
 let mouthSample=null,mouthTime=0,pendingBite=false,biteTarget=null,bitePulse=null,mouthHover=null,mouthProbeTime=0;
 function clearBiteInput(){mouthSample=null;pendingBite=false;biteTarget=null;bitePulse=null;mouthHover=null;mouthProbeTime=0;}
-const handContacts=new Map(),fingerHits=new Map();
+const handContacts=new Map(),fingerHits=new Map(),pinchGrips=new PinchGrips();
 let fingerMarkers=[],fingerProbeTurn=0;
-function clearHandContacts(){
+function clearHandContacts(){pinchGrips.clear();
   if(handContacts.size&&handMode.active){void sound.touch('release',.45);}
   handContacts.clear();fingerHits.clear();
 }
@@ -566,10 +567,10 @@ function handLoads(now,dt){
     }
     ids.add(key);contact.missingSince=null;contact.palm={x:hand.palm.x,y:hand.palm.y};
     const pinching=hand.pinched&&(finger.tip===4||finger.tip===8);
-    const retreat=pinching?hand.depth.pull:0;
-    const pressDepth=pinching?.07+hand.depth.push*.34:.10+finger.strength*.32;
-    contact.depth=pressDepth*(1-retreat*.96);
-    contact.cameraPull=retreat*.36;contact.depthControlled=true;contact.scrunch=false;
+    const retreat=pinching?(hand.depth.pullTravel??hand.depth.pull):0;
+    const pressDepth=pinching?.07+(hand.depth.pushTravel??hand.depth.push)*.34:.10+finger.strength*.32+(hand.depth.pushTravel??hand.depth.push)*.18;
+    contact.depth=pressDepth*(1-Math.min(1,retreat)*.96);
+    contact.pinching=pinching;contact.cameraPull=retreat*.36;contact.depthControlled=true;contact.scrunch=false;
     setRay(x,y);const point=raycaster.ray.intersectPlane(contact.plane,new THREE.Vector3());
     if(point){
       contact.drag=point.sub(contact.start).clampLength(0,pinching?1.2:.075).multiplyScalar(pinching?.90:1).toArray();
@@ -602,9 +603,9 @@ function handLoads(now,dt){
     const contact=rawLoads[i],load=loads[i];
     if(contact.missingSince!==null&&contact.lastLoad)loads[i]=contact.lastLoad;
     else contact.lastLoad={point:load.point,normal:load.normal,drag:load.drag,radius:load.radius,depth:load.depth,
-      creep:load.creep,scrunch:load.scrunch,depthControlled:load.depthControlled,cameraPull:load.cameraPull};
+      handId:load.handId,tip:load.tip,pinching:load.pinching,creep:load.creep,scrunch:load.scrunch,depthControlled:load.depthControlled,cameraPull:load.cameraPull};
   }
-  return {contacts:loads};
+  return {contacts:pinchGrips.update(loads)};
 }
 // Surface projection is tested only when a new camera result arrives.
 function mouthHit(x,y){

@@ -227,3 +227,6 @@ Sustained camera pokes and pulls progressively deepen or extend farther, with a 
 
 ## Wall lighting moods (2.22.0)
 The shared plaster on both room walls smoothly changes with the lighting: ivory daylight, cool blue-gray dim, peach sunset, and muted mauve cozy night. Returning to daylight restores the original plaster color.
+
+## Persistent thick camera grips (2.23.0)
+Thumb and index now share one persistent material attachment instead of dividing pinch strength across overlapping contacts. Its anchor persists until release and survives a tracked fingertip visibility swap. Held camera contacts transport a finger-width cap plus a smoothly supported column of nearby material; the opposite side stays outside the deformation support. Depth travel remains expressive beyond the old normalized gesture ceiling. Closer hands deepen finger pokes, and retreating pinches stretch outward. This is a volume-shaped deformation field, not a full volumetric rubber solver. Soft limits and tracking-loss safeguards remain. Synthetic tests cover merged grips, anchors, extended depth, thick caps and release; real camera feel still requires device testing.

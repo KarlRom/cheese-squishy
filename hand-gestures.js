@@ -1,5 +1,5 @@
 import {pinchContinuity} from './grip.js?v=2.20.0';
-import {trackHandDepth} from './hand-depth.js?v=2.20.0';
+import {trackHandDepth} from './hand-depth.js?v=2.23.0';
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const names=['Thumb','Index','Middle','Ring','Little'];
 const tips=[4,8,12,16,20],mcps=[2,5,9,13,17],pips=[3,6,10,14,18];

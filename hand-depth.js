@@ -18,6 +18,9 @@ export function trackHandDepth(size,previous,time,dt,pinched,aspect=4/3){
   const away=awayBase+((retreat?.reliable?-retreat.value:0)-awayBase)*alpha;
   const pushing=approach.reliable&&toward>(previous?.pushing ? .05 : .08);
   return {reference,pinchReference,aspect,seen:time,valid:true,pinched,toward,away,
+    // Extended travel remains responsive beyond the old normalized gesture ceiling.
+    pushTravel:pushing?Math.max(0,Math.min(2.8,(toward-.04)/.38)):0,
+    pullTravel:pinched&&retreat.reliable?Math.max(0,Math.min(2.8,(away-.055)/.38)):0,
     pushing,push:pushing?clamp((toward-.04)/.38):0,
     pull:pinched&&retreat.reliable?clamp((away-.055)/.38):0};
 }

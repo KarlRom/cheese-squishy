@@ -40,11 +40,18 @@ export class SquishyMaterial {
       for (const c of contacts) {
         const dx = x - c.point[0], dy = y - c.point[1], dz = z - c.point[2];
         const d2 = dx * dx + dy * dy + dz * dz;
-        const support2=c.radius*c.radius*5.76;
-        if(d2>(c.localized?support2:c.radius*c.radius*12))continue;
+        const normalDistance=dx*c.normal[0]+dy*c.normal[1]+dz*c.normal[2];
+        const lateral2=Math.max(0,d2-normalDistance*normalDistance);
+        const travel=Math.hypot(...c.drag)+Math.abs((c.pull||0)-c.depth);
+        const support=c.volumeContact?Math.min(1.5,Math.max(c.radius*2.4,.65+travel*1.15)):c.radius*2.4;
+        const support2=support*support;
+        // Transport a column of material, not just a thin surface patch.
+        const volumeDepth=c.volumeContact?Math.max(0,1-Math.abs(normalDistance)/1.65):1;
+        const fieldDistance=c.volumeContact?lateral2:d2;
+        if(fieldDistance>(c.localized?support2:c.radius*c.radius*12)||volumeDepth===0)continue;
         // Compact fingertip support has zero displacement and slope at its edge.
         // A second press cannot tug on a distant dent or the opposite face.
-        const q=Math.max(0,1-d2/support2);
+        const q=Math.max(0,1-fieldDistance/support2);
         // A broad, rounded shoulder carries a thick-skin pull into adjacent
         // material instead of stretching a tiny patch into a sharp membrane.
         const core=q*q*q,shoulder=q*q*(3-2*q);
@@ -53,8 +60,11 @@ export class SquishyMaterial {
         const padT=Math.max(0,Math.min(1,(Math.sqrt(d2)-c.radius*.55)/(c.radius*1.85)));
         const pad=1-padT*padT*(3-2*padT);
         const held=Math.max(0,Math.min(1,c.fingerPad||0));
-        const footprint=c.localized?rounded+(pad-rounded)*held:Math.exp(-d2/(2*c.radius*c.radius));
-        extensionLimit=Math.max(extensionLimit,.92+held*.36*footprint);
+        const cap=c.contactRadius||.2;
+        const tubeT=Math.max(0,Math.min(1,(Math.sqrt(lateral2)-cap)/(Math.max(cap+.01,support)-cap)));
+        const tube=(1-tubeT*tubeT*(3-2*tubeT))*volumeDepth*volumeDepth*(3-2*volumeDepth);
+        const footprint=c.localized?(c.volumeContact?rounded+(tube-rounded)*held:rounded+(pad-rounded)*held):Math.exp(-d2/(2*c.radius*c.radius));
+        extensionLimit=Math.max(extensionLimit,.92+held*1.05*footprint);
         const w=footprint*(c.weight??1);
         const depth = c.depth * stiffness;
         const dot = dx * c.normal[0] + dy * c.normal[1] + dz * c.normal[2];

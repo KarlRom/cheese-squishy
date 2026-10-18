@@ -12,11 +12,11 @@ export function fingerContact(contact){
   const creep=Math.max(0,Math.min(1,contact.creep||0));
   const stretch=contact.scrunch?0:Math.max(0,length-.08);
   const cameraHold=contact.depthControlled&&!contact.scrunch?creep:0;
-  const lift=contact.depthControlled?Math.max(0,Math.min(1.42,(contact.cameraPull||0)*(1+creep*.5+cameraHold*2.4))):0;
+  const lift=contact.depthControlled?Math.max(0,Math.min(2.35,(contact.cameraPull||0)*(1+creep*.5+cameraHold*2.4))):0;
   const thickness=Math.max(creep*.8,1-Math.exp(-Math.max(stretch,lift*2.5)/.28));
   const travel=contact.scrunch?length:Math.min(length,(.40+creep*.20)*Math.tanh(length/(.55+creep*.10)));
   const dragScale=length>0?travel/length:1;
-  return {...contact,localized:true,thickness,fingerPad:cameraHold,
+  return {...contact,localized:true,thickness,fingerPad:cameraHold,volumeContact:contact.depthControlled&&!contact.scrunch,contactRadius:Math.max(.17,Math.min(.24,contact.radius??.21)),
     drag:drag.map(v=>v*dragScale*FINGER_STRENGTH),
     radius:Math.max(.17,Math.min(.28,contact.radius??.22))+(contact.scrunch?Math.min(.06,length*.055):thickness*.20)+creep*.14,
     depth:Math.min(.46+creep*.16+cameraHold*.65,Math.max(0,contact.depth??.34)*(1+creep*.40+cameraHold*1.6))*(1-Math.min(contact.scrunch ? .68 : .82,length*(contact.scrunch ? .65 : .82)))*FINGER_STRENGTH,
