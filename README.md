@@ -197,3 +197,6 @@ Enable Camera mode with your hand at a comfortable neutral distance. Move visibl
 Depth uses projected palm width and wrist-to-middle-knuckle length rather than fingertip spread. Both dimensions must change consistently; one-axis foreshortening from a hand turn is rejected. A smoothed logarithmic size ratio, dead zone and hysteresis suppress idle jitter. Each hand has its own neutral reference and every pinch captures a fresh pull reference. Tracking loss, clipped palms or camera aspect changes reset depth; curled-finger eligibility still takes priority.
 
 This is relative apparent-size inference from one camera, not measured distance or force. Keep a similar hand angle and the whole palm in frame. Finger-only movement without a palm size change cannot provide reliable depth. Pulls retain the broad, thick-rubber response and soft limits. Automated tests cover near/far direction, regrabbing, jitter, rotation rejection, tracking interruption and normal-direction mesh response. Actual camera feel and phone performance require device testing.
+
+## Larger oak desk (2.17.1)
+The main desk is about 35% wider and deeper, with a 2.5× thicker top and sturdier repositioned legs. Its upper surface stays at the same height so pickup, shadows, drop and rolling contact remain aligned.

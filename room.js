@@ -44,8 +44,8 @@ export function createBedroom(oak=oakTexture()){
     mesh.position.set(x,y,z);mesh.castShadow=cast;mesh.receiveShadow=true;room.add(mesh);return mesh;
   }
   // Table top meets the untouched underside of either squishy.
-  box(9.2,.20,6.8,0,-1.145,-.35,wood);
-  for(const x of [-3.9,3.9])for(const z of [-2.95,2.25])box(.22,3.6,.22,x,-3.045,z,wood);
+  box(12.4,.50,9.2,0,-1.295,-.35,wood);
+  for(const x of [-5.5,5.5])for(const z of [-4.25,3.55])box(.32,3.3,.32,x,-3.195,z,wood);
   box(32,.12,32,0,-4.9,0,new THREE.MeshStandardMaterial({color:0xd4c2aa,roughness:.8}),false);
   box(32,18,.18,0,3,-9,plaster,false);
   box(.18,18,30,-11,3,0,plaster,false);
