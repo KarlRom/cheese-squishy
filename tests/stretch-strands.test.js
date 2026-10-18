@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three.module.js';
 import {strandTarget,writeStrand,StretchStrands} from '../stretch-strands.js';
 const grip={stretchId:'hand:0',point:[0,0,1],normal:[0,0,1],drag:[0,0,0],cameraPull:.65,depth:.01,creep:1};
-test('camera and pointer pulls create exaggerated travel while stationary pokes do not',()=>{
- assert.ok(Math.hypot(...strandTarget(grip).delta)>4);
- assert.ok(Math.hypot(...strandTarget({...grip,cameraPull:0,drag:[1,0,0]}).delta)>3.9);
+test('camera and pointer pulls retain controlled travel while stationary pokes do not',()=>{
+ assert.ok(Math.hypot(...strandTarget(grip).delta)>2);
+ assert.ok(Math.hypot(...strandTarget({...grip,cameraPull:0,drag:[1,0,0]}).delta)>1.8);
  assert.equal(strandTarget({...grip,cameraPull:0}),null);
  assert.equal(strandTarget({...grip,stretchId:undefined}),null);
- assert.ok(Math.hypot(...strandTarget({...grip,cameraPull:100}).delta)<=6.000001);
+ assert.ok(Math.hypot(...strandTarget({...grip,cameraPull:100}).delta)<=3.000001);
 });
 test('added rings retain a thick shaft and rounded tip at long extension',()=>{
  const out=new Float32Array(65*25*3);writeStrand(out,[0,0,1],[0,0,1],[0,0,5]);
@@ -35,4 +35,11 @@ test('strand meshes attach, shade, retract without overshoot and dispose on rese
  for(let i=0;i<120;i++){strands.update(1/60,[],parent,m,53);const next=strands.states.get(grip.stretchId).delta.length();assert.ok(next<=before&&next>0);before=next;}
  const loads=strands.update(1/60,[grip],parent,m,53).loads;assert.ok(loads[0].cameraPull<.05);
  strands.clear();assert.equal(parent.children.length,0);assert.equal(strands.states.size,0);
+});
+
+test('tamer strand travel stays below one and a half toy widths even for extreme input',()=>{
+ for(const drag of [[1,0,0],[100,0,0]])for(const cameraPull of [0,.65,100]){
+  const target=strandTarget({...grip,drag,cameraPull});assert.ok(Math.hypot(...target.delta)<=3.000001);
+ }
+ assert.ok(Math.hypot(...strandTarget({...grip,cameraPull:0,drag:[1,0,0]}).delta)<2);
 });

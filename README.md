@@ -242,3 +242,6 @@ Camera pinch-and-retreat and pointer drag now generate a dedicated 64-ring, 24-s
 
 ## Stretch-smoothed bite marks (2.27.0)
 Local stretching gradually fades tooth impressions in the affected patch over several seconds, including long strand pulls. Untouched marks remain intact, and idle recovery or compressive pokes do not erase them. Automated checks cover locality, gradual fading and frame-rate independence.
+
+## Tamer cheese pulls (2.28.0)
+Pointer and camera strands now use roughly half the previous extension, a three-half-width travel cap, and gentler loading. Finger-thick shafts, slow release, and stretch-smoothed bite marks are retained.

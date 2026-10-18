@@ -8,8 +8,8 @@ export function strandTarget(c){
   const pull=Math.max(0,c.cameraPull||0),side=drag.length();
   if(side<.22&&pull<.075)return null;
   const hold=clamp(c.creep||0,0,1);
-  const delta=drag.multiplyScalar(2.2+hold*1.8).addScaledVector(normal,.25+pull*(4.8+hold*2));
-  delta.clampLength(0,6);
+  const delta=drag.multiplyScalar(1.25+hold*.65).addScaledVector(normal,.18+pull*(2.6+hold*.8));
+  delta.clampLength(0,3);
   return {id:c.stretchId,point:[...c.point],normal:normal.toArray(),delta:delta.toArray()};
 }
 // Extra rings preserve a finger-thick shaft regardless of extension length.
@@ -52,7 +52,7 @@ export class StretchStrands{
         s={mesh,point:target.point,normal:target.normal,delta:new THREE.Vector3(...target.normal).multiplyScalar(.2)};this.states.set(id,s);
       }
       s.mesh.material.envMapIntensity=material.envMapIntensity;
-      s.delta.lerp(new THREE.Vector3(...target.delta),-Math.expm1(-dt*8));
+      s.delta.lerp(new THREE.Vector3(...target.delta),-Math.expm1(-dt*4.5));
     }
     for(const [id,s] of this.states){
       if(!targets.has(id)){
@@ -63,7 +63,7 @@ export class StretchStrands{
       g.attributes.position.needsUpdate=true;g.computeVertexNormals();g.computeBoundingSphere();changed=true;
     }
     // The body supplies only the rooted shoulder; the added rings carry length.
-    const loads=contacts.map(c=>targets.has(c.stretchId)?{...c,drag:c.drag.map(v=>v*.08),stretchWork:Math.min(1,Math.hypot(...targets.get(c.stretchId).delta)/3),cameraPull:Math.min(.045,c.cameraPull||0),depth:.015,deepPoke:false,creep:0}:c);
+    const loads=contacts.map(c=>targets.has(c.stretchId)?{...c,drag:c.drag.map(v=>v*.08),stretchWork:Math.min(1,Math.hypot(...targets.get(c.stretchId).delta)/1.5),cameraPull:Math.min(.045,c.cameraPull||0),depth:.015,deepPoke:false,creep:0}:c);
     return {loads,changed};
   }
 }
