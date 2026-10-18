@@ -26,3 +26,4 @@ body[data-scene=dropping] .pickup-button{visibility:hidden}
 @media(max-width:600px){.hand-panel{width:112px;left:10px;bottom:8px;border-radius:11px}.hand-panel p{font-size:9px;padding:6px 8px}.hand-panel-heading{font-size:9px;padding-left:8px}}
 
 .settings select{display:block;width:100%;min-height:44px;margin-top:7px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:#faf9f6;color:#665d4d;font:inherit;font-size:12px;cursor:pointer}.settings select:focus-visible{outline:2px solid #b8944f;outline-offset:3px}
+@media(pointer:coarse){.settings select{font-size:16px}}
