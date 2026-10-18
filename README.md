@@ -185,3 +185,8 @@ The prior weighted curl estimate could accept a folded tip if the other measurem
 This is deliberately conservative: an occluded or foreshortened finger projected inside the palm is ignored even if estimated depth suggests extension. Keep fingertips visibly outside the palm for interactions. Mild bends outside the palm can still squeeze. Hand landmarks remain model estimates; real webcam testing is still required. Regression fixtures now include full joint chains, hooked fingers with long wrist distances, misleading depth, rolled/mirrored fists, and one-frame reopening glitches.
 
 The bite target now uses a small oval mouth/teeth outline, distinct from round fingertip dots. It may remain visible when fingers are folded because it follows the mouth, not the fingers.
+
+## Lighting presets (2.16.0)
+Settings → Lighting offers Daylight, Dim, Sunset, and Cozy night. Presets change the actual hemisphere, key/fill colors and intensities, key direction, reflection strength, exposure, window appearance and bedside lamp glow. The minimal page and white background remain white. Daylight is the default; the choice is saved with existing preferences and restored on reload. Both toys inherit the current light, including during selection and pickup/drop transitions.
+
+Changes blend over a short fade; reduced-motion users get immediate changes. Environment maps are reused, with no new image downloads or live rebaking. Cozy night illuminates the bedroom's bedside lamp and keeps a soft warm key on the held toy. The browser select supports keyboard and native mobile selection. Automated checks cover preset behavior, transitions, safe fallback and newly created toys; rendered appearance and mobile device performance still need visual testing.

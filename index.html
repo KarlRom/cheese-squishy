@@ -7,7 +7,7 @@
   <meta name="description" content="Tactile 3D cheese and pearl squishies with slow-rise deformation and soft sticky sounds.">
   <title>Cheese squishy</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=2.15.0">
+  <link rel="stylesheet" href="styles.css?v=2.16.0">
 </head>
 <body data-scene="table">
   <div class="app">
@@ -41,6 +41,8 @@
       </div>
       <aside class="settings" id="settings" aria-label="Settings" hidden>
         <div class="settings-heading"><span>Settings</span><button class="icon-button" id="close-settings" aria-label="Close settings">×</button></div>
+        <label for="lighting">Lighting</label>
+        <select id="lighting" name="lighting"><option value="daylight">Daylight</option><option value="dim">Dim</option><option value="sunset">Sunset</option><option value="cozy">Cozy night</option></select>
         <label for="resistance">Resistance <output id="resistance-value" for="resistance">Soft</output></label>
         <input id="resistance" type="range" min="0" max="100" value="32" aria-describedby="resistance-hint">
         <span class="sr-only" id="resistance-hint">Melty to firm.</span>
@@ -56,6 +58,6 @@
     </main>
   </div>
   <noscript><p class="error">Enable JavaScript to squish.</p></noscript>
-  <script type="module" src="app.js?v=2.15.0"></script>
+  <script type="module" src="app.js?v=2.16.0"></script>
 </body>
 </html>

@@ -1,14 +1,15 @@
-import {toothLayout} from './bite.js?v=2.15.0';
-import {FingerPreview} from './finger-preview.js?v=2.15.0';
+import {LightingRig,lightingFor} from './lighting.js?v=2.16.0';
+import {toothLayout} from './bite.js?v=2.16.0';
+import {FingerPreview} from './finger-preview.js?v=2.16.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.15.0';
-import {HandMode} from './hand-mode.js?v=2.15.0';
-import {createBedroom} from './room.js?v=2.5.0';
+import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.16.0';
+import {HandMode} from './hand-mode.js?v=2.16.0';
+import {createBedroom} from './room.js?v=2.16.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.15.0';
+import { SquishyMaterial } from './physics.js?v=2.16.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -228,6 +229,7 @@ const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
 const shadow = new THREE.Mesh(new THREE.PlaneGeometry(4.3,3.7),new THREE.MeshBasicMaterial({ map: shadowTexture, transparent: true, depthWrite: false, toneMapped: false }));
 shadow.rotation.x = -Math.PI/2; shadow.position.set(.1,-1.035,.05); scene.add(shadow);
 const bedroom=createBedroom();scene.add(bedroom);
+const lightingRig=new LightingRig({renderer,hemisphere,key,fill,bedroom,toys:toyStates});
 const fingerPreview=new FingerPreview(scene);
 scene.fog=new THREE.Fog(0xffffff,18,45);
 tableBody=new TableBody(geometry.attributes.position.array,{kind:selectedToy.id}).rest();tableBody.apply(mesh);
@@ -742,6 +744,7 @@ $('close-settings').addEventListener('click',()=>{closeSettings();$('settings-to
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSettings();});
 document.addEventListener('pointerdown',e=>{if(!$('settings').contains(e.target)&&!$('settings-toggle').contains(e.target))closeSettings();});
 function updateSettings(save=true) {
+  lightingRig.set($('lighting').value,reducedMotion);lightingRig.refresh();needsRender=true;
   physics.resistance=Number($('resistance').value)/100;
   physics.recovery=Number($('recovery').value)/100;
   const r=physics.resistance, speed=physics.recovery;
@@ -753,13 +756,16 @@ function updateSettings(save=true) {
   sound.setPreferences($('sound-enabled').checked,Number($('volume').value)/100);
   $('volume-value').textContent = `${$('volume').value}%`;
   $('volume').disabled = !$('sound-enabled').checked || !sound.supported;
-  if(save)try{localStorage.setItem('cheese-feel-v1',JSON.stringify({resistance:$('resistance').value,recovery:$('recovery').value,sound:$('sound-enabled').checked,volume:$('volume').value}));}catch{}
+  if(save)try{localStorage.setItem('cheese-feel-v1',JSON.stringify({lighting:$('lighting').value,resistance:$('resistance').value,recovery:$('recovery').value,sound:$('sound-enabled').checked,volume:$('volume').value}));}catch{}
 }
 try {
   const saved=JSON.parse(localStorage.getItem('cheese-feel-v1'));
+  if(saved)$('lighting').value=Object.keys({daylight:1,dim:1,sunset:1,cozy:1}).includes(saved.lighting)?saved.lighting:'daylight';
   if(saved && typeof saved.sound==='boolean')$('sound-enabled').checked=saved.sound;
   for(const name of ['resistance','recovery','volume'])if(saved && Number.isFinite(Number(saved[name])))$(name).value=THREE.MathUtils.clamp(Number(saved[name]),0,100);
 }catch{}
+$('lighting').addEventListener('change',()=>{updateSettings();announce(lightingFor($('lighting').value).label+' lighting.');});
+lightingRig.set($('lighting').value,true);
 for(const id of ['resistance','recovery','volume'])$(id).addEventListener('input',()=>updateSettings());
 $('sound-enabled').addEventListener('change',()=>{updateSettings();if($('sound-enabled').checked)void unlockSound();});
 updateSettings(false);
@@ -769,6 +775,7 @@ function animate(now) {
   if(introPhase==='lifting')animatePickup(dt);
   else if(introPhase==='dropping')animateDrop(dt);
   if(toySlide)animateToySlide(dt);
+  if(lightingRig.step(dt))needsRender=true;
   const active=[...contacts.values()];
   for(const c of active) {
     const held=Math.min((now-c.started)/1000,1.8);
