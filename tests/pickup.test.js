@@ -37,3 +37,28 @@ test('the pearl can be picked at the center of the bedroom camera view',()=>{
   const ray=new THREE.Raycaster();ray.setFromCamera(new THREE.Vector2(0,0),camera);
   assert.ok(ray.intersectObject(pearl).length>0);
 });
+
+test('slide positions stay ordered and travel continuously in a single direction',async()=>{
+  const {slidePose}=await import('../pickup.js');
+  assert.equal(slidePose(0).incoming,1);assert.equal(slidePose(1).incoming,0);
+  let previous=slidePose(0);
+  for(let i=1;i<=120;i++){
+    const pose=slidePose(i/120);
+    assert.ok(pose.incoming<=previous.incoming);
+    assert.ok(pose.outgoing<=previous.outgoing);
+    assert.ok(Math.abs(pose.incoming-pose.outgoing-1)<1e-12);
+    previous=pose;
+  }
+});
+test('drop closes the gap to the tabletop monotonically without crossing it or bouncing',async()=>{
+  const {dropPose}=await import('../pickup.js');
+  let gap=Infinity,opacity=0;
+  for(let i=0;i<=150;i++){
+    const pose=dropPose(i/150);
+    const nextGap=pose.toyY-pose.roomY;
+    assert.ok(nextGap>=-1e-12);assert.ok(nextGap<=gap+1e-12);
+    assert.ok(pose.shadowOpacity>=opacity);assert.ok(pose.fogFar>pose.fogNear);
+    gap=nextGap;opacity=pose.shadowOpacity;
+  }
+  assert.ok(gap<1e-12);assert.equal(opacity,1);
+});

@@ -123,3 +123,6 @@ Both choices are included for now. `toys.js` separates toy identity and the plan
 
 ## Bedroom opening (2.5.0)
 The selected toy starts on a light oak table in an offline 3D bedroom. Tap the toy, press Enter/Space on the canvas, or use Pick up. A 1.45-second lift fades the room into the white squishing view. Reduced motion skips the lift. The table icon returns the toy to the room and resets its shape. Both toys share this flow; switching and deformation are paused during pickup.
+
+## Sliding choices and Drop (2.6.0)
+Choosing another squishy slides the current toy out and the new one in, in the direction of the selector. Touch deformation and repeat changes are paused during the transition. Drop returns the held toy to the table with a soft, non-bouncing landing and preserves its current deformation. Reduced motion skips both transitions.

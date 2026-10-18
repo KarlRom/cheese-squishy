@@ -1,5 +1,5 @@
 import {createBedroom} from './room.js?v=2.5.0';
-import {pickupPose,LIFT_SECONDS} from './pickup.js';
+import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.6.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
@@ -37,7 +37,8 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 const scene = new THREE.Scene();
 let needsRender = true;
-let introPhase='table',liftElapsed=0;
+let introPhase='table',liftElapsed=0,toySlide=null,dropStart=null;
+function isTransitioning(){return !!toySlide||introPhase==='lifting'||introPhase==='dropping';}
 const bedroomCamera=new THREE.Vector3(6,4.5,10.5);
 const bedroomTarget=new THREE.Vector3(0,-.15,0);
 const camera = new THREE.PerspectiveCamera(34, 1, .1, 60);
@@ -248,6 +249,7 @@ function beginContact(event) {
   setRay(event.clientX,event.clientY);
   mesh.updateMatrixWorld();
   const hit = raycaster.intersectObject(mesh)[0];
+  if(isTransitioning()){event.preventDefault();return;}
   if(introPhase!=='ready'){
     event.preventDefault();if(introPhase==='table'&&hit&&event.button!==2)pickUp();return;
   }
@@ -336,11 +338,12 @@ for (const type of ['pointerup','pointercancel','lostpointercapture']) canvas.ad
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 canvas.addEventListener('wheel',event=>{
   event.preventDefault();
-  if(introPhase!=='ready'||contacts.size||orbitPointers.size)return;
+  if(introPhase!=='ready'||isTransitioning()||contacts.size||orbitPointers.size)return;
   const pixels=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?stage.clientHeight:1);
   setZoom(view.radius*Math.exp(THREE.MathUtils.clamp(pixels,-200,200)*.0015));
 },{passive:false});
 function squeeze() {
+  if(isTransitioning())return;
   if(introPhase!=='ready'){pickUp();return;}
   void unlockSound(); void sound.touch('press',.75);
   // Anchor local presses to the face nearest the current camera angle.
@@ -364,6 +367,7 @@ function squeeze() {
 }
 $('squeeze').addEventListener('click',squeeze);
 function reset() {
+  if(isTransitioning())return;
   clearGestures(); resetView();
   sound.silence();
   for (const id of contacts.keys()) if (canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
@@ -374,6 +378,7 @@ function reset() {
 }
 $('reset').addEventListener('click',reset);
 canvas.addEventListener('keydown',event=>{
+  if(isTransitioning()){event.preventDefault();return;}
   if(introPhase!=='ready'){
     if(event.code==='Space'||event.key==='Enter'){event.preventDefault();pickUp();}
     return;
@@ -434,20 +439,43 @@ function updateToyUI(){
   updateIntroUI();
 }
 function selectToy(id){
-  if(id===selectedToy.id||introPhase==='lifting')return;
-  clearGestures();scene.remove(mesh);
+  if(id===selectedToy.id||isTransitioning())return;
+  clearGestures();
+  const outgoing=mesh,previous=selectedToy.id;
   selectedToy=toyFor(id);
   if(!toyStates.has(selectedToy.id))toyStates.set(selectedToy.id,createToy(selectedToy.id));
   ({geometry,material,mesh,rest,restNormals,physics}=toyStates.get(selectedToy.id));
-  scene.add(mesh);squeezeIndex=0;updateSettings(false);updateToyUI();needsRender=true;
+  mesh.position.set(0,0,0);scene.add(mesh);squeezeIndex=0;
+  if(!reducedMotion){
+    const direction=Object.keys(toys).indexOf(selectedToy.id)>Object.keys(toys).indexOf(previous)?1:-1;
+    const distance=camera.position.length();
+    const span=distance*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*camera.aspect/camera.zoom+3.0;
+    const axis=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0).multiplyScalar(direction*span);
+    toySlide={outgoing,axis,elapsed:0};mesh.position.copy(axis);
+  }else scene.remove(outgoing);
+  updateSettings(false);updateToyUI();needsRender=true;
   try{localStorage.setItem('squishy-choice-v1',selectedToy.id);}catch{}
   announce(`${selectedToy.label} selected.`);
 }
+function animateToySlide(dt){
+  toySlide.elapsed+=dt;
+  const pose=slidePose(toySlide.elapsed/SLIDE_SECONDS);
+  toySlide.outgoing.position.copy(toySlide.axis).multiplyScalar(pose.outgoing);
+  mesh.position.copy(toySlide.axis).multiplyScalar(pose.incoming);
+  if(introPhase==='table'){shadow.position.x=.1+mesh.position.x;shadow.position.z=.05+mesh.position.z;}
+  needsRender=true;
+  if(pose.progress===1){
+    scene.remove(toySlide.outgoing);toySlide.outgoing.position.set(0,0,0);
+    mesh.position.set(0,0,0);toySlide=null;shadow.position.x=.1;shadow.position.z=.05;updateIntroUI();
+  }
+}
 function updateIntroUI(){
   document.body.dataset.scene=introPhase;
-  $('pick-up').disabled=introPhase==='lifting';
+  $('pick-up').disabled=isTransitioning();
   $('put-down').hidden=introPhase!=='ready';
-  for(const id of Object.keys(toys))$('toy-'+id).disabled=introPhase==='lifting';
+  for(const id of Object.keys(toys))$('toy-'+id).disabled=isTransitioning();
+  for(const id of ['mode-squish','mode-rotate','squeeze','reset','put-down','view-left','view-right','view-up','view-down','zoom-in','zoom-out','view-home'])$(id).disabled=isTransitioning();
+  canvas.setAttribute('aria-busy',String(isTransitioning()));
   document.querySelector('.toolbar').inert=introPhase!=='ready';
   if(introPhase!=='ready'){
     canvas.setAttribute('role','button');
@@ -456,7 +484,7 @@ function updateIntroUI(){
   }else canvas.setAttribute('role','img');
 }
 function pickUp(){
-  if(introPhase!=='table')return;
+  if(introPhase!=='table'||isTransitioning())return;
   clearGestures();void unlockSound();void sound.touch('release',.45);
   closeSettings();introPhase='lifting';liftElapsed=0;updateIntroUI();
   announce('Picking up your squishy.');
@@ -468,11 +496,35 @@ function finishPickup(){
   canvas.focus({preventScroll:true});announce('Ready to squish.');
 }
 function putDown(){
-  if(introPhase!=='ready')return;
-  reset();introPhase='table';liftElapsed=0;bedroom.visible=true;bedroom.position.y=0;
-  shadow.visible=true;shadow.position.y=-1.035;shadow.material.opacity=1;
-  scene.fog=new THREE.Fog(0xffffff,18,45);turnView();updateIntroUI();needsRender=true;
-  announce('Back on the table.');
+  if(introPhase!=='ready'||isTransitioning())return;
+  clearGestures();closeSettings();
+  dropStart={position:camera.position.clone(),zoom:camera.zoom};
+  introPhase='dropping';liftElapsed=0;
+  bedroom.visible=true;bedroom.position.y=-3.4;
+  shadow.visible=true;shadow.position.set(.1,-4.435,.05);shadow.material.opacity=0;
+  scene.fog=new THREE.Fog(0xffffff,0,.3);updateIntroUI();needsRender=true;
+  announce('Dropping your squishy onto the table.');
+  if(reducedMotion)finishDrop();
+}
+function finishDrop(){
+  introPhase='table';mesh.position.set(0,0,0);bedroom.position.y=0;
+  shadow.position.set(.1,-1.035,.05);shadow.material.opacity=1;shadow.scale.set(1,1,1);
+  scene.fog=new THREE.Fog(0xffffff,18,45);
+  view.theta=homeView.theta;view.phi=homeView.phi;view.radius=HOME_RADIUS;
+  turnView();updateIntroUI();needsRender=true;dropStart=null;
+  void sound.touch('press',.42);$('pick-up').focus({preventScroll:true});announce('Back on the table.');
+}
+function animateDrop(dt){
+  liftElapsed+=dt;
+  const pose=dropPose(liftElapsed/DROP_SECONDS);
+  bedroom.position.y=pose.roomY;mesh.position.y=pose.toyY;
+  shadow.position.y=-1.035+pose.roomY;shadow.material.opacity=pose.shadowOpacity;
+  camera.position.copy(dropStart.position).lerp(bedroomCamera,pose.ease);
+  camera.zoom=THREE.MathUtils.lerp(dropStart.zoom,1,pose.ease);
+  camera.lookAt(bedroomTarget.clone().multiplyScalar(pose.ease));
+  camera.updateProjectionMatrix();camera.updateMatrixWorld();
+  scene.fog.near=pose.fogNear;scene.fog.far=pose.fogFar;needsRender=true;
+  if(pose.progress===1)finishDrop();
 }
 $('pick-up').addEventListener('click',pickUp);
 $('put-down').addEventListener('click',putDown);
@@ -533,6 +585,8 @@ function animate(now) {
   if(paused)return;
   const dt=lastTime?Math.min((now-lastTime)/1000,.05):1/60; lastTime=now;
   if(introPhase==='lifting')animatePickup(dt);
+  else if(introPhase==='dropping')animateDrop(dt);
+  if(toySlide)animateToySlide(dt);
   const active=[...contacts.values()];
   for(const c of active) {
     const held=Math.min((now-c.started)/1000,1.8);

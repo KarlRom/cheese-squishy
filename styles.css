@@ -17,3 +17,6 @@ body[data-scene=ready] .pickup-button{display:none}
 body:not([data-scene=ready]) .toolbar,body:not([data-scene=ready]) .view-buttons{display:none!important}
 body[data-scene=lifting] .pickup-button{visibility:hidden}
 body[data-scene=table] canvas{cursor:pointer}
+
+.put-down{width:50px;font-size:11px;border:1px solid var(--line);border-radius:24px}
+body[data-scene=dropping] .pickup-button{visibility:hidden}
