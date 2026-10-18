@@ -233,3 +233,6 @@ Thumb and index now share one persistent material attachment instead of dividing
 
 ## Deep finger-sized held pokes (2.24.0)
 Holding a stationary click, touch, or camera poke progressively forms a deep indentation with a finger-width rounded bottom and compact supporting rim. Dragging transitions back to the thick stretch field. Release retains slow recovery. Synthetic tests check click/camera depth, width, locality and monotonic release; real device feel needs testing.
+
+## Smaller poke craters (2.25.0)
+Held click, touch and camera pokes retain their depth with a narrower rounded bottom and a one-third smaller surrounding crater radius. Pull grips retain their wider support.

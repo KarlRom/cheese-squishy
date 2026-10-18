@@ -4,7 +4,7 @@ import {fingerContact} from '../fingertips.js';
 import {advanceCreep} from '../grip.js';
 import {SquishyMaterial} from '../physics.js';
 function hold(camera,seconds){
- const p=new SquishyMaterial(new Float32Array([0,0,1,.18,0,1,.5,0,1,.8,0,1,0,0,-1]));let creep=0;
+ const p=new SquishyMaterial(new Float32Array([0,0,1,.12,0,1,.32,0,1,.8,0,1,0,0,-1]));let creep=0;
  for(let i=0;i<seconds*60;i++){
   const c={point:[0,0,1],normal:[0,0,1],drag:[0,0,0],radius:.21,depth:.38,deepPoke:true,depthControlled:camera};
   creep=advanceCreep(creep,1/60,c);p.step(1/60,[fingerContact({...c,creep})]);
@@ -20,6 +20,13 @@ test('held clicks and camera pokes deepen with a finger-sized bottom and compact
   assert.equal(late.offset[11],0);assert.equal(late.offset[14],0);
   let prev=late.offset[2];for(let i=0;i<120;i++){late.step(1/60);assert.ok(late.offset[2]>=prev&&late.offset[2]<0);prev=late.offset[2];}
  }
+});
+test('deep poke crater ends within a compact radius',()=>{
+ const c=fingerContact({point:[0,0,1],normal:[0,0,1],drag:[0,0,0],depth:.38,deepPoke:true,creep:1});
+ const p=new SquishyMaterial(new Float32Array([0,0,1,.13,0,1,.4,0,1,.5,0,1]));
+ for(let i=0;i<600;i++)p.step(1/60,[c]);
+ assert.ok(p.offset[2]<-.85);assert.ok(Math.abs(p.offset[5])>.98*Math.abs(p.offset[2]));
+ assert.ok(Math.abs(p.offset[8])<.2*Math.abs(p.offset[2]));assert.equal(p.offset[11],0);
 });
 test('dragging out of a held poke restores the thick stretch field',()=>{
  const c=fingerContact({normal:[0,0,1],drag:[.8,0,0],depth:.38,deepPoke:true,creep:1});assert.equal(c.deepPoke,false);
