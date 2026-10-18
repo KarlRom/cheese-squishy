@@ -144,3 +144,6 @@ Touch, mouse, keyboard, and Hand mode now use compact fingertip contacts rather 
 Drop releases the toy under gravity with gentle sideways momentum and rotation. It lands without a bounce, compresses slightly on impact, and rolls or tips until friction stops it. Support height uses every vertex of the current deformed mesh; a sampled soft contact patch determines the supporting torque. The pearl has lower rolling resistance, while the cheese tends to settle onto a flatter face. This is a lightweight coupled approximation of rigid motion and the existing viscous mesh, not a full volumetric soft-body solver.
 
 The landing shadow follows the toy and becomes stronger as it approaches the table. Tap the moving or resting toy, or Pick up, to lift it smoothly from its actual position and orientation. Reduced motion places the toy at rest immediately. A camera pinch must be released after Drop before it can pick the toy up again. Existing fingertip dents remain intact.
+
+## Gentler fingertip response (2.9.1)
+Fingertip press depth, drag strength and outward pull are scaled to 85% of their previous values. Contact footprint, slow recovery, and table gravity/rolling are unchanged.

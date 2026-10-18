@@ -1,5 +1,5 @@
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {fingerContact} from './fingertips.js?v=2.8.0';
+import {fingerContact} from './fingertips.js?v=2.9.1';
 import {HandMode} from './hand-mode.js?v=2.8.0';
 import {createBedroom} from './room.js?v=2.5.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
