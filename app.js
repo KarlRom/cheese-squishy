@@ -1,15 +1,15 @@
-import {LightingRig,lightingFor} from './lighting.js?v=2.18.0';
-import {toothLayout} from './bite.js?v=2.18.0';
-import {FingerPreview} from './finger-preview.js?v=2.18.0';
+import {LightingRig,lightingFor} from './lighting.js?v=2.19.0';
+import {toothLayout} from './bite.js?v=2.19.0';
+import {FingerPreview} from './finger-preview.js?v=2.19.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.18.0';
-import {HandMode} from './hand-mode.js?v=2.18.0';
-import {createBedroom} from './room.js?v=2.18.0';
+import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.19.0';
+import {HandMode} from './hand-mode.js?v=2.19.0';
+import {createBedroom} from './room.js?v=2.19.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.18.0';
+import { SquishyMaterial } from './physics.js?v=2.19.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -229,9 +229,15 @@ const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
 const shadow = new THREE.Mesh(new THREE.PlaneGeometry(4.3,3.7),new THREE.MeshBasicMaterial({ map: shadowTexture, transparent: true, depthWrite: false, toneMapped: false }));
 shadow.rotation.x = -Math.PI/2; shadow.position.set(.1,-1.035,.05); scene.add(shadow);
 const bedroom=createBedroom();scene.add(bedroom);
-const lightingRig=new LightingRig({renderer,hemisphere,key,fill,bedroom,toys:toyStates});
+const lightingRig=new LightingRig({renderer,hemisphere,key,fill,bedroom,toys:toyStates,
+  onBackground:(color,id)=>{
+    renderer.setClearColor(color,1);if(scene.fog)scene.fog.color.copy(color);
+    const css='#'+color.getHexString();document.documentElement.style.setProperty('--scene-bg',css);
+    document.body.dataset.lighting=id;$('theme-color').setAttribute('content',css);
+  }
+});
 const fingerPreview=new FingerPreview(scene);
-scene.fog=new THREE.Fog(0xffffff,18,45);
+scene.fog=new THREE.Fog(lightingRig.current.background,18,45);
 tableBody=new TableBody(geometry.attributes.position.array,{kind:selectedToy.id}).rest();tableBody.apply(mesh);
 
 function resize() {
@@ -689,7 +695,7 @@ function putDown(){
   introPhase='dropping';liftElapsed=0;
   bedroom.visible=true;bedroom.position.y=-3.4;
   shadow.visible=true;shadow.position.set(.1,-4.435,.05);shadow.material.opacity=0;
-  scene.fog=new THREE.Fog(0xffffff,0,.3);updateIntroUI();needsRender=true;
+  scene.fog=new THREE.Fog(lightingRig.current.background,0,.3);updateIntroUI();needsRender=true;
   announce('Dropping your squishy onto the table.');
   if(reducedMotion)finishDrop();
 }
@@ -697,7 +703,7 @@ function finishDrop(){
   introPhase='table';bedroom.position.y=0;
   if(reducedMotion){tableBody.quaternion.identity();tableBody.rest();tableBody.apply(mesh);void sound.touch('press',.35);}
   shadow.position.set(mesh.position.x+.1,TABLE_Y+.01,mesh.position.z+.05);shadow.material.opacity=1;shadow.scale.set(1,1,1);
-  scene.fog=new THREE.Fog(0xffffff,18,45);
+  scene.fog=new THREE.Fog(lightingRig.current.background,18,45);
   view.theta=homeView.theta;view.phi=homeView.phi;view.radius=HOME_RADIUS;
   turnView();updateIntroUI();needsRender=true;dropStart=null;
   $('pick-up').focus({preventScroll:true});announce('Back on the table.');
