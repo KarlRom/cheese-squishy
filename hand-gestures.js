@@ -1,7 +1,7 @@
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const names=['Thumb','Index','Middle','Ring','Little'];
 const tips=[4,8,12,16,20],mcps=[2,5,9,13,17],pips=[3,6,10,14,18];
-function distance(a,b,aspect){return Math.hypot((a.x-b.x)*aspect,a.y-b.y);}
+function distance(a,b,aspect){return Math.hypot((a.x-b.x)*aspect,a.y-b.y,((a.z||0)-(b.z||0))*aspect);}
 function jointCurl(a,b,c,aspect){
   const av=[(a.x-b.x)*aspect,a.y-b.y,((a.z||0)-(b.z||0))*aspect];
   const cv=[(c.x-b.x)*aspect,c.y-b.y,((c.z||0)-(b.z||0))*aspect];
@@ -23,16 +23,16 @@ export function describeHand(points,aspect=4/3){
   const scale=Math.max(distance(points[5],points[17],aspect),distance(points[0],points[9],aspect));
   if(scale<.025)return null;
   const pinchRatio=distance(points[4],points[8],aspect)/scale;
+  const palm=[0,5,9,13,17].reduce((a,i)=>({x:a.x+points[i].x/5,y:a.y+points[i].y/5,z:a.z+(points[i].z||0)/5}),{x:0,y:0,z:0});
   const fingers=tips.map((tip,i)=>{
     const extension=distance(points[tip],points[0],aspect)/Math.max(.01,distance(points[mcps[i]],points[0],aspect));
     const extensionCurl=clamp((1.65-extension)/.65);
     const angle=jointCurl(points[mcps[i]],points[pips[i]],points[tip],aspect);
     // Distances carry most of the estimate; joint shape helps with foreshortening.
-    const curl=i===0?0:extensionCurl*.8+(angle??extensionCurl)*.2;
+    const curl=i===0?clamp(1-distance(points[tip],palm,aspect)/(.60*scale)):extensionCurl*.8+(angle??extensionCurl)*.2;
     return {name:names[i],tip,x:1-points[tip].x,y:points[tip].y,curl};
   });
   const curl=fingers.slice(1).reduce((sum,f)=>sum+f.curl/4,0);
-  const palm=[0,5,9,13,17].reduce((a,i)=>({x:a.x+points[i].x/5,y:a.y+points[i].y/5}),{x:0,y:0});
   return {pinchRatio,curl,palm,fingers,x:1-(points[4].x+points[8].x)/2,y:(points[4].y+points[8].y)/2};
 }
 export class HandGestures{
@@ -52,22 +52,27 @@ export class HandGestures{
     if(hands.length===1&&previous.length===2)order=[...previous].sort((a,b)=>cost(hands[0],a)-cost(hands[0],b));
     const dt=this.lastTime?clamp((time-this.lastTime)/1000,.005,.15):.05;
     const output=hands.map((hand,i)=>{
-      const old=order[i],pinched=hand.pinchRatio<(old?.pinched ? .52 : .34);
+      const old=order[i];
+      // Folded fingertips are not contact candidates. Reopen farther before
+      // restoring a target so a partly hidden finger cannot flicker on/off.
+      const available=hand.fingers.map((finger,j)=>({...finger,
+        active:finger.curl<(old?.fingers?.[j]?.active===false ? .40 : .62)}));
+      const pinched=available[0].active&&available[1].active&&hand.pinchRatio<(old?.pinched ? .52 : .34);
       // A loose multi-finger curl is enough; an isolated bent finger still presses alone.
       const curled=hand.fingers.slice(1).filter(f=>f.curl>(old?.closed ? .22 : .35)).length;
       const closed=curled>=2&&hand.curl>(old?.closed ? .18 : .30);
       const target=closed?clamp((hand.curl-.16)/.68):0;
       const scrunchStrength=(old?.scrunchStrength??target)+(target-(old?.scrunchStrength??target))*(1-Math.exp(-dt/.085));
       const point=smooth(hand,old,time-(old?.seen??time)>120?.15:dt);
-      const fingers=hand.fingers.map((finger,j)=>{
+      const fingers=available.map((finger,j)=>{
         const before=old?.fingers?.[j],position=smooth(finger,before,dt);
-        const pressing=closed||(j<2&&pinched)||(j>0&&finger.curl>(before?.pressing ? .40 : .57));
+        const pressing=finger.active&&(closed||(j<2&&pinched)||(j>0&&finger.curl>(before?.pressing ? .40 : .57)));
         return {...finger,...position,x:clamp(position.x),y:clamp(position.y),pressing,
           strength:pressing?Math.max(j<2&&pinched?clamp(1-hand.pinchRatio/.65):0,finger.curl,closed?scrunchStrength:0):0};
       });
       return {id:old?.id??this.nextId++,label:hand.label||old?.label,palm:hand.palm,seen:time,...point,
         x:clamp(point.x),y:clamp(point.y),pinched,closed,scrunchStrength,fingers,
-        gripping:pinched||closed||fingers.some(f=>f.pressing),strength:Math.max(0,...fingers.map(f=>f.strength))};
+        gripping:fingers.some(f=>f.pressing),strength:Math.max(0,...fingers.map(f=>f.strength))};
     });
     this.slots=[...output,...previous.filter(old=>!output.some(slot=>slot.id===old.id))].slice(0,2);
     this.lastTime=time;return output;

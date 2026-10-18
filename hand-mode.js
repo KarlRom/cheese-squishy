@@ -1,4 +1,4 @@
-import {HandGestures} from './hand-gestures.js?v=2.11.0';
+import {HandGestures} from './hand-gestures.js?v=2.12.0';
 export class HandMode{
   constructor({video,overlay,onHands,onStatus}){
     Object.assign(this,{video,overlay,onHands,onStatus});
@@ -20,7 +20,7 @@ export class HandMode{
       this.video.srcObject=stream;await this.video.play();
       if(token!==this.session)return;
       this.status('starting','Loading hand tracking… First use may take a moment.');
-      const worker=new Worker(new URL('./hand-worker.js?v=2.11.0',document.baseURI));this.worker=worker;
+      const worker=new Worker(new URL('./hand-worker.js?v=2.12.0',document.baseURI));this.worker=worker;
       await new Promise((resolve,reject)=>{
         this.rejectInit=reject;
         const timer=setTimeout(()=>reject(new Error('load')),40000);this.initTimer=timer;
@@ -33,7 +33,7 @@ export class HandMode{
       });
       if(token!==this.session)return;
       this.active=true;this.busy=false;this.lastSent=0;this.lastVideoTime=-1;this.frameInterval=50;
-      this.status('active','Outline dots show your fingertips; filled dots press. Loosely close your hand to squeeze or scrunch; pinch and move to pull.');
+      this.status('active','Only extended fingertips interact. Curled-in fingers are ignored. Pinch and move to pull.');
       worker.onerror=()=>this.fail(token,'Hand tracking stopped. You can retry or use touch.');
       worker.onmessage=({data})=>{
         if(token!==this.session)return;
@@ -74,7 +74,7 @@ export class HandMode{
         ctx.moveTo((1-points[a].x)*w,points[a].y*h);ctx.lineTo((1-points[b].x)*w,points[b].y*h);
       }
       ctx.stroke();
-      for(const [fingerIndex,i] of [4,8,12,16,20].entries()){ctx.beginPath();ctx.arc((1-points[i].x)*w,points[i].y*h,4,0,Math.PI*2);ctx.fillStyle=hands[handIndex]?.fingers[fingerIndex]?.pressing?ctx.strokeStyle:'#ffffff';ctx.fill();}
+      for(const [fingerIndex,i] of [4,8,12,16,20].entries()){if(!hands[handIndex]?.fingers[fingerIndex]?.active)continue;ctx.beginPath();ctx.arc((1-points[i].x)*w,points[i].y*h,4,0,Math.PI*2);ctx.fillStyle=hands[handIndex]?.fingers[fingerIndex]?.pressing?ctx.strokeStyle:'#ffffff';ctx.fill();}
     }
   }
   fail(token,message){if(token!==this.session)return;this.stop();this.status('error',message);}

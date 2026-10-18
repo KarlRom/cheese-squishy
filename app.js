@@ -1,13 +1,13 @@
-import {FingerPreview} from './finger-preview.js?v=2.11.0';
+import {FingerPreview} from './finger-preview.js?v=2.12.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.11.0';
-import {HandMode} from './hand-mode.js?v=2.11.0';
+import {fingerContact,balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.12.0';
+import {HandMode} from './hand-mode.js?v=2.12.0';
 import {createBedroom} from './room.js?v=2.5.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.11.0';
+import { SquishyMaterial } from './physics.js?v=2.12.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -522,7 +522,7 @@ function handLoads(now){
     fingerHits.set(key,{stamp,attachment,lastAttachment:attachment,lastSeen:now});return attachment;
   }
   const ids=new Set();let pressed=0,released=0,tablePick=false;
-  const entries=handSamples.flatMap(hand=>(hand.fingers||[]).map(finger=>({hand,finger})));
+  const entries=handSamples.flatMap(hand=>(hand.fingers||[]).filter(finger=>finger.active).map(finger=>({hand,finger})));
   const rotate=list=>{const offset=fingerProbeTurn%Math.max(1,list.length);return [...list.slice(offset),...list.slice(0,offset)];};
   const ordered=[...rotate(entries.filter(e=>e.finger.pressing)),...rotate(entries.filter(e=>!e.finger.pressing))];
   fingerProbeTurn+=2;

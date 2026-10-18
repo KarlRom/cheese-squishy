@@ -50,3 +50,11 @@ test('worker failure stops camera and clears hand input',async()=>{
     assert.equal(h.mode.phase,'error');assert.equal(input.track.stopped,true);assert.deepEqual(h.hands.at(-1),[]);
   }finally{h.restore();}
 });
+
+test('camera overlay omits endpoint dots for excluded fingertips',()=>{
+  const arcs=[],ctx={clearRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},fill(){},arc(x,y){arcs.push([x,y]);}};
+  const mode=new HandMode({overlay:{getContext:()=>ctx}});
+  const points=Array.from({length:21},(_,i)=>({x:i/25,y:.5}));
+  mode.draw([points],[{id:0,fingers:[false,true,false,true,false].map(active=>({active,pressing:false}))}]);
+  assert.deepEqual(arcs,[[ (1-points[8].x)*320,120],[(1-points[16].x)*320,120]]);
+});

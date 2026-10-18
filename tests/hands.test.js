@@ -47,10 +47,11 @@ test('two hands expose ten named, separate fingertip targets',()=>{
   assert.ok(slots[0].fingers.every(f=>Number.isFinite(f.x)&&Number.isFinite(f.y)));
   assert.notEqual(slots[0].fingers[0].x,slots[0].fingers[1].x);
 });
-test('curling one middle finger activates its own contact while other fingers stay open',()=>{
+test('a curled-in middle finger is excluded while the other fingers remain available',()=>{
   const points=hand();points[12]={x:.5,y:.69,z:0};points[10]={x:.5,y:.43,z:0};
   const slot=new HandGestures().update([points],10)[0];
-  assert.equal(slot.fingers[2].pressing,true);
+  assert.equal(slot.fingers[2].active,false);assert.equal(slot.fingers[2].pressing,false);
+  assert.ok(slot.fingers.filter((_,i)=>i!==2).every(f=>f.active));
   assert.equal(slot.fingers[1].pressing,false);assert.equal(slot.fingers[3].pressing,false);assert.equal(slot.fingers[4].pressing,false);
 });
 test('hand labels preserve identities through a crossing',()=>{
@@ -83,7 +84,8 @@ test('a loose three-finger scrunch engages before a tight fist and releases on o
   let grip;
   for(let i=1;i<=6;i++)grip=tracker.update([loose],i*50)[0];
   assert.equal(grip.closed,true);assert.ok(grip.scrunchStrength>.15&&grip.scrunchStrength<.9);
-  assert.ok(grip.fingers.every(f=>f.pressing));
+  assert.ok(grip.fingers.some(f=>f.pressing));
+  assert.ok(grip.fingers.every(f=>f.pressing===f.active));
   const released=tracker.update([open],400)[0];
   assert.equal(released.closed,false);assert.equal(released.gripping,false);
   assert.ok(released.fingers.every(f=>!f.pressing));
@@ -97,4 +99,48 @@ test('gradual closure changes scrunch strength smoothly and remains scale indepe
   const small=new HandGestures().update([hand({fist:true,scale:.6})],100)[0];
   const large=new HandGestures().update([hand({fist:true})],100)[0];
   assert.ok(Math.abs(small.scrunchStrength-large.scrunchStrength)<1e-10);
+});
+
+function folded(){
+  const p=hand({fist:true});
+  p[4]={x:.53,y:.60,z:0};p[8]={x:.44,y:.70,z:0};
+  return p;
+}
+test('a fully folded hand has no active fingertips or pinch despite nearby thumb and index',()=>{
+  const tracker=new HandGestures();tracker.update([hand({pinch:true})],0);
+  const slot=tracker.update([folded()],60)[0];
+  assert.equal(slot.pinched,false);assert.equal(slot.gripping,false);assert.equal(slot.strength,0);
+  assert.ok(slot.fingers.every(f=>!f.active&&!f.pressing&&f.strength===0));
+});
+test('opening just one finger restores only its target and folding it releases immediately',()=>{
+  const tracker=new HandGestures();tracker.update([folded()],0);
+  const p=folded();p[12]=hand()[12];
+  const open=tracker.update([p],60)[0];
+  assert.deepEqual(open.fingers.filter(f=>f.active).map(f=>f.tip),[12]);
+  const shut=tracker.update([folded()],120)[0];
+  assert.ok(shut.fingers.every(f=>!f.active&&!f.pressing));
+});
+test('folded-finger hysteresis prevents partially reopened fingertips from flickering',()=>{
+  const tracker=new HandGestures(),p=hand();p[12]={x:.5,y:.69,z:0};
+  tracker.update([p],0);
+  const middle=hand();
+  // Find a partly bent pose between the exclusion and reopening thresholds.
+  for(let y=.20;y<.69;y+=.001){
+    middle[12]={x:.5,y,z:0};
+    const curl=describeHand(middle).fingers[2].curl;
+    if(curl>.45&&curl<.55)break;
+  }
+  assert.ok(describeHand(middle).fingers[2].curl>.45);
+  assert.equal(tracker.update([middle],60)[0].fingers[2].active,false);
+  assert.equal(tracker.update([hand()],120)[0].fingers[2].active,true);
+});
+test('a finger pointing toward the camera uses depth instead of appearing folded from its screen projection',()=>{
+  const p=hand();p[12]={x:.5,y:.69,z:-.6};
+  const slot=new HandGestures().update([p],0)[0];
+  assert.equal(slot.fingers[2].active,true);
+});
+test('two hands filter curled fingers independently',()=>{
+  const [open,closed]=new HandGestures().update([hand({dx:-.2}),folded().map(p=>({...p,x:p.x+.2}))],0);
+  assert.equal(open.fingers.filter(f=>f.active).length,5);
+  assert.equal(closed.fingers.filter(f=>f.active).length,0);
 });
