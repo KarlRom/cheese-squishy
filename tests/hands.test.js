@@ -33,6 +33,14 @@ test('an upright open palm offers rotation while a pinch or curl does not',()=>{
   const sideways=hand().map(p=>({x:.5+p.y-.5,y:.5-(p.x-.5),z:0}));
   assert.equal(describeHand(sideways).rotationPose,false);
 });
+test('wrist-to-knuckle depth exposes tilt without confusing hand translation',()=>{
+  const flat=hand(),tilted=hand();
+  tilted[9].z=.08;
+  const a=describeHand(flat),b=describeHand(tilted);
+  assert.equal(a.pitch,0);assert.ok(b.pitch>.25);
+  const shifted=tilted.map(p=>({...p,x:p.x+.1,y:p.y+.1}));
+  assert.ok(Math.abs(describeHand(shifted).pitch-b.pitch)<1e-10);
+});
 test('pinch hysteresis filters threshold jitter and releases when fingers open',()=>{
   const tracker=new HandGestures(),points=hand({pinch:true});
   tracker.update([points],0);

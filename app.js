@@ -1,21 +1,21 @@
-import {CameraIntent,pullFromGrip} from './camera-intent.js?v=2.36.0';
-import {denseContact,handCompression} from './dense-feel.js?v=2.36.0';
+import {CameraIntent,pullFromGrip} from './camera-intent.js?v=2.37.0';
+import {denseContact,handCompression} from './dense-feel.js?v=2.37.0';
 let pointerGripSequence=0;
-import {PinchGrips} from './pinch-grip.js?v=2.36.0';
-import {advanceCreep,retainMissingGrip} from './grip.js?v=2.36.0';
-import {LightingRig,lightingFor} from './lighting.js?v=2.36.0';
-import {toothLayout} from './bite.js?v=2.36.0';
-import {FingerPreview} from './finger-preview.js?v=2.36.0';
+import {PinchGrips} from './pinch-grip.js?v=2.37.0';
+import {advanceCreep,retainMissingGrip} from './grip.js?v=2.37.0';
+import {LightingRig,lightingFor} from './lighting.js?v=2.37.0';
+import {toothLayout} from './bite.js?v=2.37.0';
+import {FingerPreview} from './finger-preview.js?v=2.37.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.36.0';
-import {HandMode} from './hand-mode.js?v=2.36.0';
-import {CameraRotate} from './camera-rotate.js?v=2.36.0';
-import {createBedroom} from './room.js?v=2.36.0';
+import {balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.37.0';
+import {HandMode} from './hand-mode.js?v=2.37.0';
+import {CameraRotate} from './camera-rotate.js?v=2.37.0';
+import {createBedroom} from './room.js?v=2.37.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.36.0';
+import { SquishyMaterial } from './physics.js?v=2.37.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -527,7 +527,7 @@ function handLoads(now,dt){
   if(usable){
     const rotating=cameraRotate.update(handSamples,handSampleTime);
     const rotationDelta=cameraRotate.step(now,dt);
-    if(rotationDelta)turnView(rotationDelta*2.2);
+    if(rotationDelta.horizontal||rotationDelta.vertical)turnView(rotationDelta.horizontal*2.2,rotationDelta.vertical*1.7);
     if(rotating){
       if(handContacts.size||fingerHits.size)clearHandContacts();
       return empty;

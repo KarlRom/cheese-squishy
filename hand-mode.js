@@ -51,7 +51,7 @@ export class HandMode{
           }else if(!data.faceAvailable){this.lastMouth=null;this.onMouth(null);}
           this.draw(data.landmarks,hands,this.lastMouth);this.onHands(hands);
           const count=hands.reduce((sum,h)=>sum+h.fingers.filter(f=>f.active).length,0);
-          this.onFeedback(hands.some(h=>h.rotationPose)?'Upright hand · twist wrist to rotate':`${hands.length} hand${hands.length===1?'':'s'} · ${count} fingertip${count===1?'':'s'}${this.lastMouth?.visible?' · Jaw open':''}`);
+          this.onFeedback(hands.some(h=>h.rotationPose)?'Upright hand · twist or tilt wrist to rotate':`${hands.length} hand${hands.length===1?'':'s'} · ${count} fingertip${count===1?'':'s'}${this.lastMouth?.visible?' · Jaw open':''}`);
         }
       };
       const frame=async(now)=>{

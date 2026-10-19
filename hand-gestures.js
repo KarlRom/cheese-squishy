@@ -62,7 +62,9 @@ export function describeHand(points,aspect=4/3){
   const open=fingers.slice(1).every(f=>f.clear&&f.curl<.25)&&pinchRatio>.55;
   // Across the knuckles, measured independently of hand translation.
   const roll=Math.atan2(points[17].y-points[5].y,(points[17].x-points[5].x)*aspect);
-  return {pinchRatio,curl,palm,fingers,size,rotationPose:upright&&open&&size.visible,roll,
+  // Wrist-to-knuckle depth gives a tilt axis independent of hand position and scale.
+  const pitch=Math.atan2(((points[9].z||0)-(points[0].z||0))*aspect,Math.max(.01,size.length));
+  return {pinchRatio,curl,palm,fingers,size,rotationPose:upright&&open&&size.visible,roll,pitch,
     x:1-(points[4].x+points[8].x)/2,y:(points[4].y+points[8].y)/2};
 }
 export class HandGestures{
@@ -118,7 +120,7 @@ export class HandGestures{
       });
       return {id:old?.id??this.nextId++,sourceIndex:hand.sourceIndex,label:hand.label||old?.label,palm:hand.palm,seen:time,...point,
         x:clamp(point.x),y:clamp(point.y),pinched,pinchUncertainSince:pinchState.uncertainSince,closed,scrunchStrength,fingers,depth,
-        rotationPose:hand.rotationPose&&!pinched&&!closed,roll:hand.roll,
+        rotationPose:hand.rotationPose&&!pinched&&!closed,roll:hand.roll,pitch:hand.pitch,
         gripping:fingers.some(f=>f.pressing),strength:Math.max(0,...fingers.map(f=>f.strength))};
     });
     this.slots=[...output,...previous.filter(old=>!output.some(slot=>slot.id===old.id))].slice(0,2);

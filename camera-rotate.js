@@ -4,37 +4,44 @@ const angleDelta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 export class CameraRotate{
   constructor(){this.reset();}
   reset(){
-    this.id=null;this.started=0;this.lastTime=-1;this.lastRoll=0;
+    this.id=null;this.started=0;this.lastTime=-1;this.lastRoll=0;this.lastPitch=0;
     this.active=false;this.targetVelocity=0;this.velocity=0;
+    this.targetPitchVelocity=0;this.pitchVelocity=0;
   }
   update(hands,time){
     if(time===this.lastTime)return this.id!==null;
     const hand=this.id===null?hands.find(h=>h.rotationPose):hands.find(h=>h.id===this.id&&h.rotationPose);
     if(!hand){
       // A deliberate release coasts briefly; stale tracking should stop outright.
-      if(this.id!==null&&time-this.lastTime>500)this.velocity=0;
-      this.id=null;this.active=false;this.targetVelocity=0;this.lastTime=time;
+      if(this.id!==null&&time-this.lastTime>500){this.velocity=0;this.pitchVelocity=0;}
+      this.id=null;this.active=false;this.targetVelocity=0;this.targetPitchVelocity=0;this.lastTime=time;
       return false;
     }
     if(this.id===null){
-      this.id=hand.id;this.started=time;this.lastTime=time;this.lastRoll=hand.roll;
-      this.targetVelocity=0;return true;
+      this.id=hand.id;this.started=time;this.lastTime=time;this.lastRoll=hand.roll;this.lastPitch=hand.pitch||0;
+      this.targetVelocity=0;this.targetPitchVelocity=0;return true;
     }
     const elapsed=Math.max(1,time-this.lastTime);
     const movement=angleDelta(hand.roll,this.lastRoll);
-    this.lastRoll=hand.roll;this.lastTime=time;
-    if(time-this.started<220){this.targetVelocity=0;return true;}
-    if(!this.active){this.active=true;this.targetVelocity=0;return true;}
+    const pitchMovement=angleDelta(hand.pitch||0,this.lastPitch);
+    this.lastRoll=hand.roll;this.lastPitch=hand.pitch||0;this.lastTime=time;
+    if(time-this.started<220){this.targetVelocity=0;this.targetPitchVelocity=0;return true;}
+    if(!this.active){this.active=true;this.targetVelocity=0;this.targetPitchVelocity=0;return true;}
     // Ignore impossible changes from landmark swaps, then filter the measured speed.
     this.targetVelocity=Math.abs(movement)>.34||elapsed>350?0:
       clamp(Math.abs(movement)<.006?0:movement/(elapsed/1000),-2.3,2.3);
+    this.targetPitchVelocity=Math.abs(pitchMovement)>.34||elapsed>350?0:
+      clamp(Math.abs(pitchMovement)<.012?0:pitchMovement/(elapsed/1000),-1.6,1.6);
     return true;
   }
   step(now,dt){
     const target=this.id!==null&&now-this.lastTime<180?this.targetVelocity:0;
+    const pitchTarget=this.id!==null&&now-this.lastTime<180?this.targetPitchVelocity:0;
     const decay=target===0?.20:.10;
     this.velocity+=(target-this.velocity)*(1-Math.exp(-Math.max(0,dt)/decay));
+    this.pitchVelocity+=(pitchTarget-this.pitchVelocity)*(1-Math.exp(-Math.max(0,dt)/(pitchTarget===0?.20:.12)));
     if(Math.abs(this.velocity)<.015)this.velocity=0;
-    return this.velocity*dt;
+    if(Math.abs(this.pitchVelocity)<.02)this.pitchVelocity=0;
+    return {horizontal:this.velocity*dt,vertical:this.pitchVelocity*dt};
   }
 }

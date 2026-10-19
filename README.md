@@ -269,3 +269,6 @@ With the toy picked up and Camera mode on, hold one open hand upright with four 
 
 ## Smooth camera rotation (2.36.0)
 Wrist rotation now follows a filtered angular speed on every display frame instead of jumping once per camera sample. It eases into a twist and briefly coasts as the wrist stops or the pose is released. Tracking gaps and abrupt landmark jumps still do not add spin.
+
+## Vertical camera rotation (2.37.0)
+Keep an open hand upright in Camera mode. Twist the wrist side to side for horizontal rotation, or tilt the palm toward and away from the camera for vertical rotation. Both axes use smooth, bounded motion with a brief coast. The vertical gesture uses landmark depth, so a clear view of the wrist and knuckles helps.
