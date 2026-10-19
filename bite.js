@@ -52,12 +52,13 @@ export class BiteGesture{
     return output(bite);
   }
 }
-// Two shallow dental arches with wider front incisors and smaller side teeth.
+// Broad, shallow dental arches: enough to read as a bite without a sharp print
+// of every tooth in the soft surface.
 export function toothLayout(width=.85){
   width=clamp(width,.55,1.1);
-  return [-1,1].flatMap(row=>Array.from({length:6},(_,i)=>{
-    const t=(i-2.5)/2.5;
-    return {x:t*width*.5,y:row*(.16+.08*(1-t*t)),width:width*(Math.abs(t)<.3?.09:.075),height:.075,depth:Math.abs(t)>.7?.095:.12};
+  return [-1,1].flatMap(row=>Array.from({length:4},(_,i)=>{
+    const t=(i-1.5)/1.5;
+    return {x:t*width*.5,y:row*(.16+.06*(1-t*t)),width:width*(Math.abs(t)<.4?.16:.12),height:.11,depth:Math.abs(t)>.7?.06:.075};
   }));
 }
 // Permanent shallow rounded tooth impressions. Independent of transient loads,
@@ -70,8 +71,8 @@ export function imprintTeeth(rest,marks,teeth,strength=1){
       const r=tooth.right,u=tooth.up,n=tooth.normal;
       const x=(dx*r[0]+dy*r[1]+dz*r[2])/tooth.width;
       const y=(dx*u[0]+dy*u[1]+dz*u[2])/tooth.height;
-      const z=(dx*n[0]+dy*n[1]+dz*n[2])/.16;
-      const q=1-x*x*x*x-y*y*y*y-z*z;
+      const z=(dx*n[0]+dy*n[1]+dz*n[2])/.18;
+      const q=1-x*x-y*y-z*z;
       if(q<=0)continue;
       const depth=tooth.depth*q*q*clamp(strength,0,1);
       ax-=n[0]*depth;ay-=n[1]*depth;az-=n[2]*depth;

@@ -71,10 +71,10 @@ test('repeated bites remain bounded and animation builds a mark progressively',(
   assert.ok(Math.abs(p.marks[2])<=.260001);
 });
 test('dental layout has two curved rows, central incisors and finite bounded dimensions',()=>{
-  const teeth=toothLayout(100);assert.equal(teeth.length,12);
-  assert.equal(teeth.filter(t=>t.y>0).length,6);
-  assert.ok(teeth[2].width>teeth[0].width);assert.ok(Math.abs(teeth[2].y)>Math.abs(teeth[0].y));
-  assert.ok(teeth.every(t=>Math.abs(t.x)<=.55&&t.depth<=.12));
+  const teeth=toothLayout(100);assert.equal(teeth.length,8);
+  assert.equal(teeth.filter(t=>t.y>0).length,4);
+  assert.ok(teeth[1].width>teeth[0].width);assert.ok(Math.abs(teeth[1].y)>Math.abs(teeth[0].y));
+  assert.ok(teeth.every(t=>Math.abs(t.x)<=.55&&t.depth<=.075));
 });
 
 test('curved pearl retains real front-surface tooth impressions with finite shading and an intact rear',async()=>{

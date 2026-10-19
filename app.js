@@ -1,22 +1,22 @@
-import {CameraIntent,pullFromGrip} from './camera-intent.js?v=2.39.0';
-import {denseContact,handCompression} from './dense-feel.js?v=2.39.0';
+import {CameraIntent,pullFromGrip} from './camera-intent.js?v=2.40.0';
+import {denseContact,handCompression} from './dense-feel.js?v=2.40.0';
 let pointerGripSequence=0;
-import {PinchGrips} from './pinch-grip.js?v=2.39.0';
-import {advanceCreep,retainMissingGrip} from './grip.js?v=2.39.0';
-import {LightingRig,lightingFor} from './lighting.js?v=2.39.0';
-import {toothLayout} from './bite.js?v=2.39.0';
-import {FingerPreview} from './finger-preview.js?v=2.39.0';
+import {PinchGrips} from './pinch-grip.js?v=2.40.0';
+import {advanceCreep,retainMissingGrip} from './grip.js?v=2.40.0';
+import {LightingRig,lightingFor} from './lighting.js?v=2.40.0';
+import {toothLayout} from './bite.js?v=2.40.0';
+import {FingerPreview} from './finger-preview.js?v=2.40.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.39.0';
-import {HandMode} from './hand-mode.js?v=2.39.0';
-import {CameraRotate} from './camera-rotate.js?v=2.39.0';
-import {createBedroom} from './room.js?v=2.39.0';
+import {balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.40.0';
+import {HandMode} from './hand-mode.js?v=2.40.0';
+import {CameraRotate} from './camera-rotate.js?v=2.40.0';
+import {createBedroom} from './room.js?v=2.40.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
-import {makePhotoPillow,photoTexture,PHOTO_RADII} from './photo-squishy.js?v=2.39.0';
+import {makePhotoPillow,photoTexture,PHOTO_RADII} from './photo-squishy.js?v=2.40.0';
 import * as THREE from './vendor/three.module.js';
-import { toys, toyFor } from './toys.js?v=2.39.0';
-import { SquishyMaterial } from './physics.js?v=2.39.0';
+import { toys, toyFor } from './toys.js?v=2.40.0';
+import { SquishyMaterial } from './physics.js?v=2.40.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -698,8 +698,8 @@ function biteLoads(now){
   const t=Math.min(1,Math.max(0,progress/.4)),impression=t*t*(3-2*t);
   physics.applyImprint(bitePulse.field,impression-bitePulse.applied);bitePulse.applied=impression;
   const strength=Math.sin(Math.PI*Math.max(0,progress));
-  return bitePulse.teeth.map(tooth=>({point:tooth.point,normal:tooth.normal,radius:.24,depth:.23*strength,
-    drag:tooth.up.map(v=>v*Math.sign(tooth.y)*.09*strength),scrunch:true}));
+  return bitePulse.teeth.map(tooth=>({point:tooth.point,normal:tooth.normal,radius:.27,depth:.14*strength,
+    drag:tooth.up.map(v=>v*Math.sign(tooth.y)*.05*strength),scrunch:true}));
 }
 function drawFingerPreviews(){
   fingerPreview.begin();

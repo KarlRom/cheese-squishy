@@ -278,3 +278,6 @@ Camera depth now uses one signed distance from the moment a pinch begins for bot
 
 ## Personal photo squishy (2.39.0)
 Tap Photo in the toy picker and choose an image from your phone or computer. A centered square crop is projected onto the front of a rounded, ivory-backed pillow with a soft edge fade; it deforms with the same slow-rise mesh as the other toys. Tap Photo again while selected to replace it. Images up to 20 MB are processed in the browser session only: no server upload, recording, or persistent photo storage. Reloading the page clears the photo and returns to Cheese. A clear, centered face picture gives the best result.
+
+## Softer bite marks (2.40.0)
+Bites now leave four broader, shallower impressions per dental arch instead of six narrow ones. The imprint has a smoother falloff and the short closing pressure is gentler, so marks read as a soft bite rather than a detailed tooth stamp. Bite detection, reset, and gradual mark smoothing during stretching are unchanged.
