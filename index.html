@@ -8,7 +8,7 @@
   <meta name="description" content="Tactile 3D cheese and pearl squishies with slow-rise deformation and soft sticky sounds.">
   <title>Cheese squishy</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=2.38.0">
+  <link rel="stylesheet" href="styles.css?v=2.39.0">
 </head>
 <body data-scene="table">
   <div class="app">
@@ -18,7 +18,10 @@
       <div class="toy-picker" role="group" aria-label="Choose a squishy">
         <button id="toy-cheese" aria-pressed="true" aria-label="Cheese squishy"><span class="toy-swatch cheese-swatch" aria-hidden="true"></span>Cheese</button>
         <button id="toy-pearl" aria-pressed="false" aria-label="Pearl coconut oil squishy"><span class="toy-swatch pearl-swatch" aria-hidden="true"></span>Pearl</button>
+        <button id="toy-face" aria-pressed="false" aria-label="Choose a photo squishy"><span class="toy-swatch photo-swatch" aria-hidden="true"></span>Photo</button>
       </div>
+      <input id="face-file" class="sr-only" type="file" accept="image/*" aria-label="Choose a photo for your squishy">
+      <p id="photo-message" class="photo-message" role="status" hidden></p>
       <div class="stage" id="stage">
         <canvas id="squishy" tabindex="0" role="img" aria-label="Interactive 3D cheese. Press and hold to dent, drag to stretch, or pinch to squeeze. Drag the white space to turn the view, or choose Rotate and pinch to zoom. Hold Space to squeeze; arrow keys move the press; R resets." aria-describedby="gesture-help"></canvas>
         <div class="hand-panel" id="hand-panel" hidden aria-label="Hands and mouth tracking camera">
@@ -61,6 +64,6 @@
     </main>
   </div>
   <noscript><p class="error">Enable JavaScript to squish.</p></noscript>
-  <script type="module" src="app.js?v=2.38.0"></script>
+  <script type="module" src="app.js?v=2.39.0"></script>
 </body>
 </html>

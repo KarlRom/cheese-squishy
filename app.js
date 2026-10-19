@@ -1,21 +1,22 @@
-import {CameraIntent,pullFromGrip} from './camera-intent.js?v=2.38.0';
-import {denseContact,handCompression} from './dense-feel.js?v=2.38.0';
+import {CameraIntent,pullFromGrip} from './camera-intent.js?v=2.39.0';
+import {denseContact,handCompression} from './dense-feel.js?v=2.39.0';
 let pointerGripSequence=0;
-import {PinchGrips} from './pinch-grip.js?v=2.38.0';
-import {advanceCreep,retainMissingGrip} from './grip.js?v=2.38.0';
-import {LightingRig,lightingFor} from './lighting.js?v=2.38.0';
-import {toothLayout} from './bite.js?v=2.38.0';
-import {FingerPreview} from './finger-preview.js?v=2.38.0';
+import {PinchGrips} from './pinch-grip.js?v=2.39.0';
+import {advanceCreep,retainMissingGrip} from './grip.js?v=2.39.0';
+import {LightingRig,lightingFor} from './lighting.js?v=2.39.0';
+import {toothLayout} from './bite.js?v=2.39.0';
+import {FingerPreview} from './finger-preview.js?v=2.39.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.38.0';
-import {HandMode} from './hand-mode.js?v=2.38.0';
-import {CameraRotate} from './camera-rotate.js?v=2.38.0';
-import {createBedroom} from './room.js?v=2.38.0';
+import {balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.39.0';
+import {HandMode} from './hand-mode.js?v=2.39.0';
+import {CameraRotate} from './camera-rotate.js?v=2.39.0';
+import {createBedroom} from './room.js?v=2.39.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
+import {makePhotoPillow,photoTexture,PHOTO_RADII} from './photo-squishy.js?v=2.39.0';
 import * as THREE from './vendor/three.module.js';
-import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.38.0';
+import { toys, toyFor } from './toys.js?v=2.39.0';
+import { SquishyMaterial } from './physics.js?v=2.39.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -201,11 +202,15 @@ function makeCheese(segments) {
   geometry.computeBoundingSphere();
   return geometry;
 }
+let faceTexture=null;
 function createToy(id){
-  const pearl=id==='pearl';
-  const geometry=pearl?makePearl(64):makeCheese(matchMedia('(max-width: 600px)').matches?64:80);
+  const pearl=id==='pearl',face=id==='face';
+  const geometry=face?makePhotoPillow(64):pearl?makePearl(64):makeCheese(matchMedia('(max-width: 600px)').matches?64:80);
   if(pearl&&!pearlEnvironment)pearlEnvironment=makePearlEnvironment();
-  const material=new THREE.MeshPhysicalMaterial(pearl?{
+  const material=new THREE.MeshPhysicalMaterial(face?{
+    color:0xffffff,map:faceTexture,roughness:.54,metalness:0,
+    clearcoat:.16,clearcoatRoughness:.48,envMapIntensity:.55
+  }:pearl?{
     color:0xfffaf5,vertexColors:true,roughness:.23,metalness:.08,
     clearcoat:1,clearcoatRoughness:.065,ior:1.58,specularIntensity:1.15,
     iridescence:.65,iridescenceIOR:1.36,iridescenceThicknessRange:[300,390],
@@ -222,6 +227,7 @@ function createToy(id){
 const toyStates=new Map();
 let selectedToy=toyFor('cheese');
 try{selectedToy=toyFor(localStorage.getItem('squishy-choice-v1'));}catch{}
+if(selectedToy.id==='face')selectedToy=toys.cheese; // The private photo is kept only in memory.
 let {geometry,material,mesh,rest,restNormals,physics}=createToy(selectedToy.id);
 toyStates.set(selectedToy.id,{geometry,material,mesh,rest,restNormals,physics});scene.add(mesh);
 
@@ -363,16 +369,19 @@ function squeeze() {
   const viewNormal=camera.position.clone().normalize();
   const axis=[Math.abs(viewNormal.x),Math.abs(viewNormal.y),Math.abs(viewNormal.z)];
   const dominant=axis.indexOf(Math.max(...axis));
-  const normal=selectedToy.id==='pearl'?viewNormal:new THREE.Vector3().setComponent(dominant,Math.sign(viewNormal.getComponent(dominant)));
+  const rounded=selectedToy.id==='pearl'||selectedToy.id==='face';
+  const normal=rounded?viewNormal:new THREE.Vector3().setComponent(dominant,Math.sign(viewNormal.getComponent(dominant)));
   const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0);
   right.addScaledVector(normal,-right.dot(normal)).normalize();
   const up=new THREE.Vector3().crossVectors(normal,right).normalize();
   const profile=makeSqueeze(squeezeIndex++,{normal:normal.toArray(),right:right.toArray(),up:up.toArray()});
-  if(selectedToy.id==='pearl')for(const contact of profile.contacts){
-    const p=new THREE.Vector3(...contact.point);p.y-=.025;
-    const scale=1/Math.sqrt((p.x/1.32)**2+(p.y/1.04)**2+(p.z/1.25)**2);
-    p.multiplyScalar(scale);contact.point=[p.x,p.y+.025,p.z];
-    contact.normal=new THREE.Vector3(p.x/(1.32**2),p.y/(1.04**2),p.z/(1.25**2)).normalize().toArray();
+  if(rounded)for(const contact of profile.contacts){
+    const radii=selectedToy.id==='face'?PHOTO_RADII:{x:1.32,y:1.04,z:1.25};
+    const p=new THREE.Vector3(...contact.point);
+    if(selectedToy.id==='pearl')p.y-=.025;
+    const scale=1/Math.sqrt((p.x/radii.x)**2+(p.y/radii.y)**2+(p.z/radii.z)**2);
+    p.multiplyScalar(scale);contact.point=[p.x,p.y+(selectedToy.id==='pearl'?.025:0),p.z];
+    contact.normal=new THREE.Vector3(p.x/(radii.x**2),p.y/(radii.y**2),p.z/(radii.z**2)).normalize().toArray();
   }
   buttonGesture={profile,started:performance.now()};
   $('squeeze').dataset.squeeze=profile.name;
@@ -447,11 +456,12 @@ function updateToyUI(){
   $('squeeze').setAttribute('aria-label',`Squeeze the ${selectedToy.name.toLowerCase()}`);
   $('reset').setAttribute('aria-label',`Reset ${selectedToy.name.toLowerCase()} and view`);
   document.querySelector('main').setAttribute('aria-label',selectedToy.label);
-  keyboardPoint=[0,.12,selectedToy.id==='pearl'?1.24:1];
+  keyboardPoint=[0,.12,selectedToy.id==='pearl'?1.24:selectedToy.id==='face'?.71:1];
   setMode(interactionMode);
   updateIntroUI();
 }
 function selectToy(id){
+  if(id==='face'&&!faceTexture){$('face-file').click();return;}
   if(id===selectedToy.id||isTransitioning())return;
   clearGestures();
   clearHandContacts();clearBiteInput();handMode.bites.reset();
@@ -471,7 +481,7 @@ function selectToy(id){
     toySlide={outgoing,outBase,inBase,axis,elapsed:0};mesh.position.copy(inBase).add(axis);
   }else scene.remove(outgoing);
   updateSettings(false);updateToyUI();needsRender=true;
-  try{localStorage.setItem('squishy-choice-v1',selectedToy.id);}catch{}
+  try{localStorage.setItem('squishy-choice-v1',selectedToy.id==='face'?'cheese':selectedToy.id);}catch{}
   announce(`${selectedToy.label} selected.`);
 }
 function animateToySlide(dt){
@@ -779,7 +789,31 @@ function animatePickup(dt){
   needsRender=true;
   if(pose.progress===1)finishPickup();
 }
-for(const id of Object.keys(toys))$('toy-'+id).addEventListener('click',()=>selectToy(id));
+for(const id of Object.keys(toys))$('toy-'+id).addEventListener('click',()=>{
+  if(id==='face'&&selectedToy.id==='face')$('face-file').click();else selectToy(id);
+});
+$('face-file').addEventListener('change',async event=>{
+  const file=event.target.files?.[0];event.target.value='';if(!file)return;
+  const message=$('photo-message');
+  if(!file.type.startsWith('image/')||file.size>20*1024*1024){
+    message.textContent='Choose an image under 20 MB.';message.hidden=false;return;
+  }
+  const url=URL.createObjectURL(file);
+  try{
+    const image=new Image();
+    await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=url;});
+    if(!image.naturalWidth||!image.naturalHeight)throw new Error('empty image');
+    const next=photoTexture(image),previous=faceTexture;faceTexture=next;
+    const state=toyStates.get('face');
+    if(state){state.material.map=next;state.material.needsUpdate=true;needsRender=true;}
+    previous?.dispose();
+    message.hidden=true;
+    if(selectedToy.id!=='face')selectToy('face');
+    announce('Your photo squishy is ready.');
+  }catch{
+    message.textContent='This photo could not be opened. Try a JPEG or PNG.';message.hidden=false;
+  }finally{URL.revokeObjectURL(url);}
+});
 updateToyUI();
 $('mode-squish').addEventListener('click',()=>setMode('squish'));
 $('mode-rotate').addEventListener('click',()=>setMode('rotate'));

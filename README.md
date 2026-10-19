@@ -275,3 +275,6 @@ Keep an open hand upright in Camera mode. Twist the wrist side to side for horiz
 
 ## Clearer camera push and pull (2.38.0)
 Camera depth now uses one signed distance from the moment a pinch begins for both directions. Moving a pinched hand toward the camera presses inward; moving it away pulls outward. The previous method used different reference positions for push and pull, which could report both at once after a pinch began at a new distance. Release, camera loss, and a new pinch reset the directional reference. One-axis hand turns remain excluded from depth motion.
+
+## Personal photo squishy (2.39.0)
+Tap Photo in the toy picker and choose an image from your phone or computer. A centered square crop is projected onto the front of a rounded, ivory-backed pillow with a soft edge fade; it deforms with the same slow-rise mesh as the other toys. Tap Photo again while selected to replace it. Images up to 20 MB are processed in the browser session only: no server upload, recording, or persistent photo storage. Reloading the page clears the photo and returns to Cheese. A clear, centered face picture gives the best result.
