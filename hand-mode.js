@@ -1,5 +1,5 @@
 import {BiteGesture} from './bite.js?v=2.20.0';
-import {HandGestures} from './hand-gestures.js?v=2.34.0';
+import {HandGestures} from './hand-gestures.js?v=2.35.0';
 export class HandMode{
   constructor({video,overlay,onHands,onMouth=()=>{},onFeedback=()=>{},onReset=()=>{},onStatus}){
     Object.assign(this,{video,overlay,onHands,onMouth,onFeedback,onReset,onStatus});
@@ -51,7 +51,7 @@ export class HandMode{
           }else if(!data.faceAvailable){this.lastMouth=null;this.onMouth(null);}
           this.draw(data.landmarks,hands,this.lastMouth);this.onHands(hands);
           const count=hands.reduce((sum,h)=>sum+h.fingers.filter(f=>f.active).length,0);
-          this.onFeedback(`${hands.length} hand${hands.length===1?'':'s'} · ${count} fingertip${count===1?'':'s'}${this.lastMouth?.visible?' · Jaw open':''}`);
+          this.onFeedback(hands.some(h=>h.rotationPose)?'Upright hand · twist wrist to rotate':`${hands.length} hand${hands.length===1?'':'s'} · ${count} fingertip${count===1?'':'s'}${this.lastMouth?.visible?' · Jaw open':''}`);
         }
       };
       const frame=async(now)=>{

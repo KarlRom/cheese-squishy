@@ -57,7 +57,13 @@ export function describeHand(points,aspect=4/3){
   const projected=(a,b)=>Math.hypot((a.x-b.x)*aspect,a.y-b.y);
   const size={width:projected(points[5],points[17]),length:projected(points[0],points[9]),
     visible:[0,5,9,13,17].every(i=>points[i].x>.015&&points[i].x<.985&&points[i].y>.015&&points[i].y<.985)};
-  return {pinchRatio,curl,palm,fingers,size,x:1-(points[4].x+points[8].x)/2,y:(points[4].y+points[8].y)/2};
+  const up={x:(points[9].x-points[0].x)*aspect,y:points[0].y-points[9].y};
+  const upright=up.y>.055&&Math.abs(up.x)<up.y*.8;
+  const open=fingers.slice(1).every(f=>f.clear&&f.curl<.25)&&pinchRatio>.55;
+  // Across the knuckles, measured independently of hand translation.
+  const roll=Math.atan2(points[17].y-points[5].y,(points[17].x-points[5].x)*aspect);
+  return {pinchRatio,curl,palm,fingers,size,rotationPose:upright&&open&&size.visible,roll,
+    x:1-(points[4].x+points[8].x)/2,y:(points[4].y+points[8].y)/2};
 }
 export class HandGestures{
   constructor(){this.slots=[];this.nextId=0;this.lastTime=0;}
@@ -112,6 +118,7 @@ export class HandGestures{
       });
       return {id:old?.id??this.nextId++,sourceIndex:hand.sourceIndex,label:hand.label||old?.label,palm:hand.palm,seen:time,...point,
         x:clamp(point.x),y:clamp(point.y),pinched,pinchUncertainSince:pinchState.uncertainSince,closed,scrunchStrength,fingers,depth,
+        rotationPose:hand.rotationPose&&!pinched&&!closed,roll:hand.roll,
         gripping:fingers.some(f=>f.pressing),strength:Math.max(0,...fingers.map(f=>f.strength))};
     });
     this.slots=[...output,...previous.filter(old=>!output.some(slot=>slot.id===old.id))].slice(0,2);

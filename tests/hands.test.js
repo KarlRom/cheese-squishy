@@ -26,6 +26,13 @@ test('pinch strength is normalized by palm size and cursor is mirrored',()=>{
   assert.ok(Math.abs(a.pinchRatio-b.pinchRatio)<1e-10);
   assert.ok(Math.abs(a.x-.59)<1e-10);
 });
+test('an upright open palm offers rotation while a pinch or curl does not',()=>{
+  assert.equal(describeHand(hand()).rotationPose,true);
+  assert.equal(describeHand(hand({pinch:true})).rotationPose,false);
+  assert.equal(describeHand(hand({fist:true})).rotationPose,false);
+  const sideways=hand().map(p=>({x:.5+p.y-.5,y:.5-(p.x-.5),z:0}));
+  assert.equal(describeHand(sideways).rotationPose,false);
+});
 test('pinch hysteresis filters threshold jitter and releases when fingers open',()=>{
   const tracker=new HandGestures(),points=hand({pinch:true});
   tracker.update([points],0);
