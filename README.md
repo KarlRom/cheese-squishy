@@ -266,3 +266,6 @@ Camera mode waits for a fingertip to hold steady over the squishy for about a qu
 
 ## Camera wrist rotation (2.35.0)
 With the toy picked up and Camera mode on, hold one open hand upright with four fingers pointing up for a moment, then twist your wrist to turn the squishy. Translation across the camera view does not rotate it. Lower or curl the hand to release rotation and resume fingertip squishing. Sudden tracking jumps are ignored, and the pose suppresses accidental pokes while it is held.
+
+## Smooth camera rotation (2.36.0)
+Wrist rotation now follows a filtered angular speed on every display frame instead of jumping once per camera sample. It eases into a twist and briefly coasts as the wrist stops or the pose is released. Tracking gaps and abrupt landmark jumps still do not add spin.
