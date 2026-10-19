@@ -272,3 +272,6 @@ Wrist rotation now follows a filtered angular speed on every display frame inste
 
 ## Vertical camera rotation (2.37.0)
 Keep an open hand upright in Camera mode. Twist the wrist side to side for horizontal rotation, or tilt the palm toward and away from the camera for vertical rotation. Both axes use smooth, bounded motion with a brief coast. The vertical gesture uses landmark depth, so a clear view of the wrist and knuckles helps.
+
+## Clearer camera push and pull (2.38.0)
+Camera depth now uses one signed distance from the moment a pinch begins for both directions. Moving a pinched hand toward the camera presses inward; moving it away pulls outward. The previous method used different reference positions for push and pull, which could report both at once after a pinch began at a new distance. Release, camera loss, and a new pinch reset the directional reference. One-axis hand turns remain excluded from depth motion.

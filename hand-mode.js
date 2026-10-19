@@ -1,5 +1,5 @@
 import {BiteGesture} from './bite.js?v=2.20.0';
-import {HandGestures} from './hand-gestures.js?v=2.35.0';
+import {HandGestures} from './hand-gestures.js?v=2.38.0';
 export class HandMode{
   constructor({video,overlay,onHands,onMouth=()=>{},onFeedback=()=>{},onReset=()=>{},onStatus}){
     Object.assign(this,{video,overlay,onHands,onMouth,onFeedback,onReset,onStatus});

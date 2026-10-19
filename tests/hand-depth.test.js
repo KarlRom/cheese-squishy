@@ -53,3 +53,21 @@ test('extended depth travel remains expressive beyond the old normalized ceiling
  const near=run(1.7,false,base,750),nearer=run(2.2,false,near,1500);
  assert.ok(nearer.pushTravel>near.pushTravel);assert.equal(run(.4,false,farther,3000).pullTravel,0);
 });
+test('pinching at a new distance uses one signed origin and never pushes while pulling',()=>{
+ const neutral=run(1),closer=run(1.35,false,neutral,750);
+ assert.ok(closer.push>0);
+ const pinched=run(1.35,true,closer,1500);
+ assert.equal(pinched.push,0);assert.equal(pinched.pull,0);
+ const retreat=run(1.12,true,pinched,2250);
+ assert.ok(retreat.pull>0);assert.equal(retreat.push,0);
+ const approach=run(1.55,true,retreat,3000);
+ assert.ok(approach.push>0);assert.equal(approach.pull,0);
+});
+
+test('pinch direction reversal passes through neutral without overlapping loads',()=>{
+ let state=run(1,true);
+ for(const [scale,start] of [[.7,750],[1,1500],[1.3,2250],[1,3000],[.7,3750]]){
+  state=run(scale,true,state,start);
+  assert.ok(!(state.pushTravel>0&&state.pullTravel>0));
+ }
+});
