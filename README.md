@@ -260,3 +260,6 @@ Updated the existing connected-mesh implementation from the three supplied refer
 
 ## Pull reduction adjusted (2.33.0)
 Pull and tensile drag now retain 80 percent of the pre-reference-tuning response (20 percent reduction instead of 65 percent). Dense compression, folds, dent depth and slow recovery are unchanged.
+
+## Calmer camera gestures (2.34.0)
+Camera mode waits for a fingertip to hold steady over the squishy for about a quarter second before starting a press, pinch, or pickup. Moving across the frame, leaving the surface, losing tracking, or releasing the gesture resets this short hold. Approaching with an open palm no longer presses all visible fingers; approach pressing requires a pointed index, while curled fingers and deliberate pinches keep their existing interactions. A new pinch measures pulling from the moment the grip engages, so earlier hand movement cannot produce an immediate outward jerk. The camera remains an estimate of intent rather than a pressure sensor.

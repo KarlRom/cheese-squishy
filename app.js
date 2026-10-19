@@ -1,19 +1,20 @@
-import {denseContact,handCompression} from './dense-feel.js?v=2.33.0';
+import {CameraIntent,pullFromGrip} from './camera-intent.js?v=2.34.0';
+import {denseContact,handCompression} from './dense-feel.js?v=2.34.0';
 let pointerGripSequence=0;
-import {PinchGrips} from './pinch-grip.js?v=2.33.0';
-import {advanceCreep,retainMissingGrip} from './grip.js?v=2.33.0';
-import {LightingRig,lightingFor} from './lighting.js?v=2.33.0';
-import {toothLayout} from './bite.js?v=2.33.0';
-import {FingerPreview} from './finger-preview.js?v=2.33.0';
+import {PinchGrips} from './pinch-grip.js?v=2.34.0';
+import {advanceCreep,retainMissingGrip} from './grip.js?v=2.34.0';
+import {LightingRig,lightingFor} from './lighting.js?v=2.34.0';
+import {toothLayout} from './bite.js?v=2.34.0';
+import {FingerPreview} from './finger-preview.js?v=2.34.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.33.0';
-import {HandMode} from './hand-mode.js?v=2.33.0';
-import {createBedroom} from './room.js?v=2.33.0';
+import {balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.34.0';
+import {HandMode} from './hand-mode.js?v=2.34.0';
+import {createBedroom} from './room.js?v=2.34.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
 import * as THREE from './vendor/three.module.js';
 import { toys, toyFor } from './toys.js?v=2.2.0';
-import { SquishyMaterial } from './physics.js?v=2.33.0';
+import { SquishyMaterial } from './physics.js?v=2.34.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -487,9 +488,9 @@ function animateToySlide(dt){
 let handSamples=[],handSampleTime=0,handNeedsRelease=false;
 let mouthSample=null,mouthTime=0,pendingBite=false,biteTarget=null,bitePulse=null,mouthHover=null,mouthProbeTime=0;
 function clearBiteInput(){mouthSample=null;pendingBite=false;biteTarget=null;bitePulse=null;mouthHover=null;mouthProbeTime=0;}
-const handContacts=new Map(),fingerHits=new Map(),pinchGrips=new PinchGrips();
+const handContacts=new Map(),fingerHits=new Map(),pinchGrips=new PinchGrips(),cameraIntent=new CameraIntent();
 let fingerMarkers=[],fingerProbeTurn=0;
-function clearHandContacts(){pinchGrips.clear();
+function clearHandContacts(){pinchGrips.clear();cameraIntent.clear();
   if(handContacts.size&&handMode.active){void sound.touch('release',.45);}
   handContacts.clear();fingerHits.clear();
 }
@@ -530,7 +531,7 @@ function handLoads(now,dt){
   function probe(key,x,y,freshRequired){
     const cached=fingerHits.get(key);
     if(cached?.stamp===stamp)return cached.attachment;
-    if(rayBudget<=0)return freshRequired?null:cached?.attachment;
+    if(rayBudget<=0)return cached?.lastAttachment&&now-cached.lastSeen<=250?cached.lastAttachment:null;
     rayBudget--;
     setRay(x,y);const hit=raycaster.intersectObject(mesh,false)[0];
     if(!hit){fingerHits.set(key,{...cached,stamp,attachment:null});return null;}
@@ -547,29 +548,41 @@ function handLoads(now,dt){
   fingerProbeTurn+=2;
   const visibleKeys=new Set(entries.map(({hand,finger})=>`${hand.id}:${finger.tip}`));
   for(const key of fingerHits.keys())if(!visibleKeys.has(key))fingerHits.delete(key);
+  cameraIntent.prune(visibleKeys);
   for(const {hand,finger} of ordered){
     const key=`${hand.id}:${finger.tip}`,x=rect.left+finger.x*rect.width,y=rect.top+finger.y*rect.height;
     let contact=handContacts.get(key);
-    if(contact&&(!usable||!finger.pressing||waitingForRelease))contact=null;
+    if(contact&&(!usable||!finger.pressing||waitingForRelease)){cameraIntent.forget(key);contact=null;}
     const attachment=contact||probe(key,x,y,finger.pressing&&usable)||
       (usable&&!waitingForRelease?recentGripHit(fingerHits.get(key),now,hand.closed):null);
     if(attachment)fingerMarkers.push({key,handId:hand.id,attachment,pressing:!!contact});
-    if(!attachment)continue;
-    if(introPhase==='table'&&!waitingForRelease&&finger.pressing){tablePick=true;continue;}
+    if(!attachment){if(!contact)cameraIntent.forget(key);continue;}
+    if(introPhase==='table'&&!waitingForRelease&&finger.pressing){
+      if(cameraIntent.ready(key,{pressing:true,tip:{x:finger.x,y:finger.y},
+        palm:hand.palm,sampleTime:handSampleTime,
+        hit:!!fingerHits.get(key)?.attachment&&now-fingerHits.get(key).lastSeen<=250}))tablePick=true;
+      continue;
+    }
     if(!usable||waitingForRelease||!finger.pressing)continue;
+    if(!contact&&!cameraIntent.ready(key,{pressing:finger.pressing,
+      tip:{x:finger.x,y:finger.y},palm:hand.palm,sampleTime:handSampleTime,
+      hit:!!fingerHits.get(key)?.attachment&&now-fingerHits.get(key).lastSeen<=250}))continue;
     if(!contact){
+      cameraIntent.forget(key);
       const anchor=new THREE.Vector3(),normal=new THREE.Vector3();
       attachment.triangle.forEach((index,i)=>{
         anchor.addScaledVector(new THREE.Vector3().fromArray(rest,index*3),attachment.bary[i]);
         normal.addScaledVector(new THREE.Vector3().fromArray(restNormals,index*3),attachment.bary[i]);
       });
       contact={...attachment,point:anchor.toArray(),normal:normal.normalize().toArray(),drag:[0,0,0],radius:finger.tip===4?.22:.18,depth:0,handId:hand.id,tip:finger.tip,
+        pullOrigin:hand.pinched?(hand.depth.pullTravel??hand.depth.pull):0,
         start:attachment.hit.clone(),plane:new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),attachment.hit)};
       handContacts.set(key,contact);pressed++;
     }
     ids.add(key);contact.missingSince=null;contact.palm={x:hand.palm.x,y:hand.palm.y};
     const pinching=hand.pinched&&(finger.tip===4||finger.tip===8);
-    const retreat=pinching?(hand.depth.pullTravel??hand.depth.pull):0;
+    if(pinching&&!contact.pinching)contact.pullOrigin=hand.depth.pullTravel??hand.depth.pull;
+    const retreat=pinching?pullFromGrip(hand.depth.pullTravel??hand.depth.pull,contact.pullOrigin):0;
     const pressDepth=pinching?.07+(hand.depth.pushTravel??hand.depth.push)*.34:.10+finger.strength*.32+(hand.depth.pushTravel??hand.depth.push)*.18;
     contact.depth=pressDepth*(1-Math.min(1,retreat)*.96);
     contact.deepPoke=!pinching;contact.pinching=pinching;contact.cameraPull=retreat*.36;contact.depthControlled=true;contact.scrunch=false;
@@ -584,7 +597,7 @@ function handLoads(now,dt){
     if(usable&&!waitingForRelease&&retainMissingGrip(contact,handSamples,now,handSampleTime)){
       // Keep the last confirmed load; missing frames do not add creep or points.
       fingerMarkers.push({key,handId:contact.handId,attachment:contact,pressing:true});
-    }else{handContacts.delete(key);released++;}
+    }else{handContacts.delete(key);cameraIntent.forget(key);released++;}
   }
   if(pressed)void sound.touch('press',.55);else if(released)void sound.touch('release',.45);
   if(tablePick){fingerMarkers=[];pickUp();return empty;}

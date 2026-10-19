@@ -177,10 +177,14 @@ test('one apparently open frame cannot resurrect a hidden finger or a previous p
   assert.equal(tracker.update([hand({pinch:true})],300)[0].pinched,true);
 });
 
-test('moving an extended hand closer activates depth pressing, while folded fingers remain excluded',()=>{
+test('an approaching open palm stays idle; a pointed index can poke while folded fingers remain excluded',()=>{
   const tracker=new HandGestures();tracker.update([hand()],0);let closer;
   for(let t=50;t<=650;t+=50)closer=tracker.update([hand({scale:1.25})],t)[0];
-  assert.ok(closer.depth.push>.4);assert.ok(closer.fingers.some(f=>f.pressing));
+  assert.ok(closer.depth.push>.4);assert.ok(closer.fingers.every(f=>!f.pressing));
+  const pointed=new HandGestures();pointed.update([hand({fist:true})],0);let index;
+  for(let t=50;t<=650;t+=50)index=pointed.update([hand({fist:true,scale:1.25})],t)[0];
+  assert.ok(index.fingers[1].pressing);
+  assert.ok(index.fingers.slice(2).every(f=>!f.pressing));
   const p=folded().map(p=>({x:.5+(p.x-.5)*1.25,y:.5+(p.y-.5)*1.25,z:0}));
   const fist=tracker.update([p],700)[0];
   assert.ok(fist.fingers.every(f=>!f.active&&!f.pressing));assert.equal(fist.gripping,false);

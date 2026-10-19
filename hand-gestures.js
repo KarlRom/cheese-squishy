@@ -100,9 +100,13 @@ export class HandGestures{
       const target=closed?clamp((hand.curl-.16)/.68):0;
       const scrunchStrength=(old?.scrunchStrength??target)+(target-(old?.scrunchStrength??target))*(1-Math.exp(-dt/.085));
       const point=smooth(hand,old,time-(old?.seen??time)>120?.15:dt);
+      // Approaching the camera with an open palm must not press every tip.
+      // A clear index with the other long fingers folded can still poke.
+      const pointing=available[1].active&&available.slice(2).filter(f=>f.active&&f.clear).length<=1;
       const fingers=available.map((finger,j)=>{
         const before=old?.fingers?.[j],position=smooth(finger,before,dt);
-        const pressing=finger.active&&(depth.pushing||closed||(j<2&&pinched)||(j>0&&finger.curl>(before?.pressing ? .25 : .35)));
+        const approachPress=depth.pushing&&j===1&&pointing;
+        const pressing=finger.active&&(approachPress||closed||(j<2&&pinched)||(j>0&&finger.curl>(before?.pressing ? .25 : .35)));
         return {...finger,...position,x:clamp(position.x),y:clamp(position.y),pressing,
           strength:pressing?Math.max(j<2&&pinched?clamp(1-hand.pinchRatio/.65):0,finger.curl,closed?scrunchStrength:0,depth.push):0};
       });
