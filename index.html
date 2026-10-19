@@ -8,7 +8,7 @@
   <meta name="description" content="Tactile 3D cheese and pearl squishies with slow-rise deformation and soft sticky sounds.">
   <title>Cheese squishy</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=2.41.0">
+  <link rel="stylesheet" href="styles.css?v=2.42.0">
 </head>
 <body data-scene="table">
   <div class="app">
@@ -61,10 +61,13 @@
         <input id="volume" type="range" min="0" max="100" value="38" aria-describedby="sound-hint">
         <p class="sr-only" id="sound-hint">Sticky sounds start with your first squeeze.</p>
         <div class="hand-settings"><button id="hands-toggle" aria-pressed="false" aria-describedby="hand-hint">Enable camera mode</button><p id="hand-hint">Camera video stays on your device. No recording or microphone.</p></div>
+        <label for="camera-opacity">Camera squishy opacity <output id="camera-opacity-value" for="camera-opacity">100%</output></label>
+        <input id="camera-opacity" type="range" min="40" max="100" value="100" aria-describedby="camera-opacity-hint">
+        <span class="sr-only" id="camera-opacity-hint">In camera mode, a pointing index finger gently fades the squishy further.</span>
       </aside>
     </main>
   </div>
   <noscript><p class="error">Enable JavaScript to squish.</p></noscript>
-  <script type="module" src="app.js?v=2.41.0"></script>
+  <script type="module" src="app.js?v=2.42.0"></script>
 </body>
 </html>

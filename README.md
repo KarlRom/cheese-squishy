@@ -276,11 +276,13 @@ Keep an open hand upright in Camera mode. Twist the wrist side to side for horiz
 ## Clearer camera push and pull (2.38.0)
 Camera depth now uses one signed distance from the moment a pinch begins for both directions. Moving a pinched hand toward the camera presses inward; moving it away pulls outward. The previous method used different reference positions for push and pull, which could report both at once after a pinch began at a new distance. Release, camera loss, and a new pinch reset the directional reference. One-axis hand turns remain excluded from depth motion.
 
-## Personal photo squishy (2.39.0)
-Tap Photo in the toy picker and choose an image from your phone or computer. A centered square crop is projected onto the front of a rounded, ivory-backed pillow with a soft edge fade; it deforms with the same slow-rise mesh as the other toys. Tap Photo again while selected to replace it. Images up to 20 MB are processed in the browser session only: no server upload, recording, or persistent photo storage. Reloading the page clears the photo and returns to Cheese. A clear, centered face picture gives the best result.
+## Personal photo squishy (2.42.0)
+Tap Photo in the toy picker and choose an image from your phone or computer. The bundled on-device face model finds one face, centers the crop, and gives the pillow a subtle 3D relief around the nose, cheeks, and chin. It remains soft and uses the same slow-rise mesh as the other toys. If no face is found, the original centered photo pillow remains available. Tap Photo again while selected to replace it. Images up to 20 MB are processed in the browser session only: no server upload, recording, or persistent photo storage. Reloading the page clears the photo and returns to Cheese. A clear, front-facing picture gives the best result.
 
 ## Softer bite marks (2.40.0)
 Bites now leave four broader, shallower impressions per dental arch instead of six narrow ones. The imprint has a smoother falloff and the short closing pressure is gentler, so marks read as a soft bite rather than a detailed tooth stamp. Bite detection, reset, and gradual mark smoothing during stretching are unchanged.
 
-## Camera background (2.41.0)
+## Camera background (2.42.0)
 When Camera mode is on and a squishy is picked up, the mirrored live camera fills the stage behind the transparent 3D rendering. Finger previews and bite targeting use the same centered crop as the displayed video, including on tall phones, so visible fingers line up with the model. The bedroom remains the presentation when the toy is on the table, and stopping the camera restores the normal background. The extra video view shares the existing local camera stream; it does not add a recording or upload.
+
+The Camera squishy opacity slider in Settings controls how clearly the live video shows through the toy. When a tracked index fingertip points at its surface, the toy briefly fades a little further; moving away restores the chosen opacity smoothly.

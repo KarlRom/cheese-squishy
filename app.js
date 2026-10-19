@@ -1,23 +1,23 @@
-import {CameraIntent,pullFromGrip} from './camera-intent.js?v=2.41.0';
-import {denseContact,handCompression} from './dense-feel.js?v=2.41.0';
+import {CameraIntent,pullFromGrip} from './camera-intent.js?v=2.42.0';
+import {denseContact,handCompression} from './dense-feel.js?v=2.42.0';
 let pointerGripSequence=0;
-import {PinchGrips} from './pinch-grip.js?v=2.41.0';
-import {advanceCreep,retainMissingGrip} from './grip.js?v=2.41.0';
-import {LightingRig,lightingFor} from './lighting.js?v=2.41.0';
-import {toothLayout} from './bite.js?v=2.41.0';
-import {FingerPreview} from './finger-preview.js?v=2.41.0';
+import {PinchGrips} from './pinch-grip.js?v=2.42.0';
+import {advanceCreep,retainMissingGrip} from './grip.js?v=2.42.0';
+import {LightingRig,lightingFor} from './lighting.js?v=2.42.0';
+import {toothLayout} from './bite.js?v=2.42.0';
+import {FingerPreview} from './finger-preview.js?v=2.42.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.41.0';
-import {HandMode} from './hand-mode.js?v=2.41.0';
-import {CameraRotate} from './camera-rotate.js?v=2.41.0';
-import {coverPoint} from './camera-space.js?v=2.41.0';
-import {createBedroom} from './room.js?v=2.41.0';
+import {balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.42.0';
+import {HandMode} from './hand-mode.js?v=2.42.0';
+import {CameraRotate} from './camera-rotate.js?v=2.42.0';
+import {coverPoint} from './camera-space.js?v=2.42.0';
+import {createBedroom} from './room.js?v=2.42.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
-import {makePhotoPillow,photoTexture,PHOTO_RADII} from './photo-squishy.js?v=2.41.0';
+import {makePhotoPillow,photoTexture,faceCrop,PHOTO_RADII} from './photo-squishy.js?v=2.42.0';
 import * as THREE from './vendor/three.module.js';
-import { toys, toyFor } from './toys.js?v=2.41.0';
-import { SquishyMaterial } from './physics.js?v=2.41.0';
+import { toys, toyFor } from './toys.js?v=2.42.0';
+import { SquishyMaterial } from './physics.js?v=2.42.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -203,10 +203,10 @@ function makeCheese(segments) {
   geometry.computeBoundingSphere();
   return geometry;
 }
-let faceTexture=null;
+let faceTexture=null,faceShape=null;
 function createToy(id){
   const pearl=id==='pearl',face=id==='face';
-  const geometry=face?makePhotoPillow(64):pearl?makePearl(64):makeCheese(matchMedia('(max-width: 600px)').matches?64:80);
+  const geometry=face?makePhotoPillow(64,faceShape):pearl?makePearl(64):makeCheese(matchMedia('(max-width: 600px)').matches?64:80);
   if(pearl&&!pearlEnvironment)pearlEnvironment=makePearlEnvironment();
   const material=new THREE.MeshPhysicalMaterial(face?{
     color:0xffffff,map:faceTexture,roughness:.54,metalness:0,
@@ -468,6 +468,7 @@ function selectToy(id){
   clearGestures();
   clearHandContacts();clearBiteInput();handMode.bites.reset();
   const outgoing=mesh,previous=selectedToy.id,outBase=mesh.position.clone();
+  outgoing.material.opacity=1;outgoing.material.transparent=false;outgoing.material.depthWrite=true;
   tableBody=null;
   selectedToy=toyFor(id);
   if(!toyStates.has(selectedToy.id))toyStates.set(selectedToy.id,createToy(selectedToy.id));
@@ -814,6 +815,22 @@ function animatePickup(dt){
 for(const id of Object.keys(toys))$('toy-'+id).addEventListener('click',()=>{
   if(id==='face'&&selectedToy.id==='face')$('face-file').click();else selectToy(id);
 });
+async function findPhotoFace(image){
+  if(!window.Worker||!window.createImageBitmap)return null;
+  let worker,bitmap;
+  try{
+    bitmap=await createImageBitmap(image);
+    worker=new Worker(new URL('./photo-face-worker.js?v=2.42.0',document.baseURI));
+    const result=await new Promise(resolve=>{
+      const timer=setTimeout(()=>resolve(null),12000);
+      worker.onmessage=({data})=>{clearTimeout(timer);resolve(data.landmarks);};
+      worker.onerror=()=>{clearTimeout(timer);resolve(null);};
+      worker.postMessage({bitmap},[bitmap]);bitmap=null;
+    });
+    return faceCrop(result,image.naturalWidth,image.naturalHeight);
+  }catch{return null;}
+  finally{bitmap?.close();worker?.terminate();}
+}
 $('face-file').addEventListener('change',async event=>{
   const file=event.target.files?.[0];event.target.value='';if(!file)return;
   const message=$('photo-message');
@@ -825,13 +842,25 @@ $('face-file').addEventListener('change',async event=>{
     const image=new Image();
     await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=url;});
     if(!image.naturalWidth||!image.naturalHeight)throw new Error('empty image');
-    const next=photoTexture(image),previous=faceTexture;faceTexture=next;
+    message.textContent='Finding face…';message.hidden=false;
+    const shape=await findPhotoFace(image);
+    const next=photoTexture(image,shape),previous=faceTexture;faceTexture=next;faceShape=shape;
     const state=toyStates.get('face');
-    if(state){state.material.map=next;state.material.needsUpdate=true;needsRender=true;}
+    if(state){
+      const nextGeometry=makePhotoPillow(64,shape),oldGeometry=state.geometry;
+      nextGeometry.boundingSphere.radius=3.2;
+      state.geometry=nextGeometry;state.mesh.geometry=nextGeometry;
+      state.rest=nextGeometry.attributes.position.array.slice();state.restNormals=nextGeometry.attributes.normal.array.slice();
+      state.physics=new SquishyMaterial(state.rest);
+      state.material.map=next;state.material.needsUpdate=true;
+      if(selectedToy.id==='face')({geometry,rest,restNormals,physics}=state);
+      oldGeometry.dispose();needsRender=true;
+    }
     previous?.dispose();
-    message.hidden=true;
+    message.textContent=shape?'Face shaped in 3D.':'No face found. Using the original photo shape.';
+    message.hidden=false;setTimeout(()=>{if(message.textContent.includes('shape'))message.hidden=true;},4500);
     if(selectedToy.id!=='face')selectToy('face');
-    announce('Your photo squishy is ready.');
+    announce(shape?'Your face squishy is ready.':'Your photo squishy is ready. No face was detected.');
   }catch{
     message.textContent='This photo could not be opened. Try a JPEG or PNG.';message.hidden=false;
   }finally{URL.revokeObjectURL(url);}
@@ -863,20 +892,24 @@ function updateSettings(save=true) {
   $('recovery').setAttribute('aria-valuetext',`${recoveryLabel}, about ${Math.round(physics.recoveryTime*3)} seconds for 95 percent recovery`);
   sound.setPreferences($('sound-enabled').checked,Number($('volume').value)/100);
   $('volume-value').textContent = `${$('volume').value}%`;
+  $('camera-opacity-value').textContent=`${$('camera-opacity').value}%`;
   $('volume').disabled = !$('sound-enabled').checked || !sound.supported;
-  if(save)try{localStorage.setItem('cheese-feel-v1',JSON.stringify({lighting:$('lighting').value,resistance:$('resistance').value,recovery:$('recovery').value,sound:$('sound-enabled').checked,volume:$('volume').value}));}catch{}
+  if(save)try{localStorage.setItem('cheese-feel-v1',JSON.stringify({lighting:$('lighting').value,resistance:$('resistance').value,recovery:$('recovery').value,sound:$('sound-enabled').checked,volume:$('volume').value,cameraOpacity:$('camera-opacity').value}));}catch{}
 }
 try {
   const saved=JSON.parse(localStorage.getItem('cheese-feel-v1'));
   if(saved)$('lighting').value=Object.keys({daylight:1,dim:1,sunset:1,cozy:1}).includes(saved.lighting)?saved.lighting:'daylight';
   if(saved && typeof saved.sound==='boolean')$('sound-enabled').checked=saved.sound;
   for(const name of ['resistance','recovery','volume'])if(saved && Number.isFinite(Number(saved[name])))$(name).value=THREE.MathUtils.clamp(Number(saved[name]),0,100);
+  if(saved && Number.isFinite(Number(saved.cameraOpacity)))$('camera-opacity').value=THREE.MathUtils.clamp(Number(saved.cameraOpacity),40,100);
 }catch{}
 $('lighting').addEventListener('change',()=>{updateSettings();announce(lightingFor($('lighting').value).label+' lighting.');});
 lightingRig.set($('lighting').value,true);
 for(const id of ['resistance','recovery','volume'])$(id).addEventListener('input',()=>updateSettings());
+$('camera-opacity').addEventListener('input',()=>updateSettings());
 $('sound-enabled').addEventListener('change',()=>{updateSettings();if($('sound-enabled').checked)void unlockSound();});
 updateSettings(false);
+let visibleOpacity=1;
 function animate(now) {
   if(paused)return;
   const dt=lastTime?Math.min((now-lastTime)/1000,.05):1/60; lastTime=now;
@@ -891,6 +924,17 @@ function animate(now) {
     c.deepPoke=true;c.creep=advanceCreep(c.creep,dt,c);
   }
   const hands=handLoads(now,dt);active.push(...hands.contacts,...biteLoads(now));
+  const pointing=handMode.active&&fingerMarkers.some(marker=>marker.key.endsWith(':8')&&!marker.pressing)
+    &&handSamples.some(hand=>hand.fingers?.[1]?.active&&!hand.fingers[1].pressing);
+  const targetOpacity=handMode.active?Math.max(.35,Number($('camera-opacity').value)/100-(pointing?.22:0)):1;
+  visibleOpacity+= (targetOpacity-visibleOpacity)*(1-Math.exp(-dt*(pointing?5:7)));
+  if(Math.abs(visibleOpacity-targetOpacity)<.002)visibleOpacity=targetOpacity;
+  if(Math.abs(material.opacity-visibleOpacity)>.002){
+    material.opacity=visibleOpacity;
+    const transparent=visibleOpacity<.995;
+    if(material.transparent!==transparent){material.transparent=transparent;material.depthWrite=!transparent;material.needsUpdate=true;}
+    needsRender=true;
+  }
   const keyboardAuto=now<squeezeUntil||heldKey;
   if(keyboardAuto)active.push({point:keyboardPoint,normal:[0,0,1],drag:[0,-.10,0],radius:.23,depth:.36});
   if(buttonGesture&&now-buttonGesture.started>=buttonGesture.profile.duration)buttonGesture=null;

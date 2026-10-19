@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {makePhotoPillow,PHOTO_RADII} from '../photo-squishy.js';
+import {makePhotoPillow,faceCrop,PHOTO_RADII} from '../photo-squishy.js';
 import {SquishyMaterial} from '../physics.js';
 import {toyFor} from '../toys.js';
 
@@ -27,4 +27,23 @@ test('photo surface keeps its texture coordinates while a press deforms it',()=>
   assert.deepEqual(geometry.attributes.uv.array,before);
   assert.ok(geometry.attributes.position.array.some((value,i)=>Math.abs(value-rest[i])>.01));
   geometry.dispose();
+});
+
+test('detected face guides a modest raised nose while the rear stays sealed',()=>{
+  const landmarks=Array.from({length:478},()=>({x:.5,y:.5}));
+  landmarks[1]={x:.5,y:.5};landmarks[168]={x:.5,y:.43};
+  landmarks[205]={x:.3,y:.55};landmarks[425]={x:.7,y:.55};
+  landmarks[152]={x:.5,y:.8};landmarks[33]={x:.3,y:.38};landmarks[263]={x:.7,y:.38};
+  landmarks[10]={x:.5,y:.2};
+  const face=faceCrop(landmarks,800,1000);
+  assert.ok(face);assert.ok(face.points[1].u>.45&&face.points[1].u<.55);
+  const plain=makePhotoPillow(32),shaped=makePhotoPillow(32,face);
+  let raised=0,backMoved=0;
+  for(let i=0;i<plain.attributes.position.count;i++){
+    const before=plain.attributes.position.getZ(i),after=shaped.attributes.position.getZ(i);
+    if(before>.3)raised=Math.max(raised,after-before);
+    if(before<-.1)backMoved=Math.max(backMoved,Math.abs(after-before));
+  }
+  assert.ok(raised>.05&&raised<.5);assert.equal(backMoved,0);
+  plain.dispose();shaped.dispose();
 });
