@@ -11,6 +11,11 @@
 .pearl-swatch{border-radius:50%;background:radial-gradient(ellipse at 28% 22%,#fff 3%,#fbf8f6 16%,#e1d5e5 42%,#c8cbd5 56%,#fbf0df 77%,#ded7df 90%);box-shadow:inset 0 0 0 1px #81788922}
 .photo-swatch{border-radius:45%;background:radial-gradient(ellipse at 35% 25%,#fff8f1,#ead6c8 55%,#b99b8a);box-shadow:inset 0 0 0 1px #98796833}
 .photo-message{position:absolute;z-index:5;top:68px;left:18px;margin:0;padding:7px 10px;border-radius:10px;background:#fff;color:#765c4c;font-size:11px;box-shadow:0 2px 9px #281a1714}
+.hand-background{display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);pointer-events:none;background:#fff}
+.stage.camera-background .hand-background{display:block}
+.stage.camera-background #squishy{position:relative;z-index:1}
+.stage.camera-background .hand-panel{z-index:3}
+.stage.camera-background .hand-preview{display:none}
 body[data-toy=face] .primary{background:#ecdbcf;border-color:#dec3b3}
 @media(max-width:430px){.toy-picker .toy-swatch{display:none}.toy-picker button{padding:0 9px;font-size:10px}}
 body[data-toy=pearl] .primary{background:#f1edf4;border-color:#e1dce8;color:#695d71}body[data-toy=pearl] .primary:hover{background:#e8e1ee}

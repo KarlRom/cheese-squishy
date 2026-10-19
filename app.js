@@ -1,22 +1,23 @@
-import {CameraIntent,pullFromGrip} from './camera-intent.js?v=2.40.0';
-import {denseContact,handCompression} from './dense-feel.js?v=2.40.0';
+import {CameraIntent,pullFromGrip} from './camera-intent.js?v=2.41.0';
+import {denseContact,handCompression} from './dense-feel.js?v=2.41.0';
 let pointerGripSequence=0;
-import {PinchGrips} from './pinch-grip.js?v=2.40.0';
-import {advanceCreep,retainMissingGrip} from './grip.js?v=2.40.0';
-import {LightingRig,lightingFor} from './lighting.js?v=2.40.0';
-import {toothLayout} from './bite.js?v=2.40.0';
-import {FingerPreview} from './finger-preview.js?v=2.40.0';
+import {PinchGrips} from './pinch-grip.js?v=2.41.0';
+import {advanceCreep,retainMissingGrip} from './grip.js?v=2.41.0';
+import {LightingRig,lightingFor} from './lighting.js?v=2.41.0';
+import {toothLayout} from './bite.js?v=2.41.0';
+import {FingerPreview} from './finger-preview.js?v=2.41.0';
 import {TableBody,TABLE_Y} from './table-physics.js?v=2.9.0';
-import {balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.40.0';
-import {HandMode} from './hand-mode.js?v=2.40.0';
-import {CameraRotate} from './camera-rotate.js?v=2.40.0';
-import {createBedroom} from './room.js?v=2.40.0';
+import {balanceContacts,scrunchContact,recentGripHit} from './fingertips.js?v=2.41.0';
+import {HandMode} from './hand-mode.js?v=2.41.0';
+import {CameraRotate} from './camera-rotate.js?v=2.41.0';
+import {coverPoint} from './camera-space.js?v=2.41.0';
+import {createBedroom} from './room.js?v=2.41.0';
 import {pickupPose,slidePose,dropPose,LIFT_SECONDS,SLIDE_SECONDS,DROP_SECONDS} from './pickup.js?v=2.9.0';
 import { makePearl } from './toy-geometry.js?v=2.4.1';
-import {makePhotoPillow,photoTexture,PHOTO_RADII} from './photo-squishy.js?v=2.40.0';
+import {makePhotoPillow,photoTexture,PHOTO_RADII} from './photo-squishy.js?v=2.41.0';
 import * as THREE from './vendor/three.module.js';
-import { toys, toyFor } from './toys.js?v=2.40.0';
-import { SquishyMaterial } from './physics.js?v=2.40.0';
+import { toys, toyFor } from './toys.js?v=2.41.0';
+import { SquishyMaterial } from './physics.js?v=2.41.0';
 import { HOME_RADIUS, clampRadius, pinchRadius, cameraZoom } from './zoom.js?v=2.1.0';
 import { makeSqueeze } from './squeezes.js';
 import { SquishySound } from './sound.js?v=2.0.0';
@@ -35,7 +36,7 @@ const canvas = $('squishy'), stage = $('stage');
 const status = $('status');
 let renderer;
 try {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'default' });
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'default' });
 } catch (error) {
   $('loading').hidden = true; $('error').hidden = false;
   $('squeeze').disabled = true; $('reset').disabled = true;
@@ -243,7 +244,8 @@ shadow.rotation.x = -Math.PI/2; shadow.position.set(.1,-1.035,.05); scene.add(sh
 const bedroom=createBedroom();scene.add(bedroom);
 const lightingRig=new LightingRig({renderer,hemisphere,key,fill,bedroom,toys:toyStates,
   onBackground:(color,id)=>{
-    renderer.setClearColor(color,1);if(scene.fog)scene.fog.color.copy(color);
+    renderer.setClearColor(color,stage.classList.contains('camera-background')?0:1);
+    if(scene.fog)scene.fog.color.copy(color);
     const css='#'+color.getHexString();document.documentElement.style.setProperty('--scene-bg',css);
     document.body.dataset.lighting=id;$('theme-color').setAttribute('content',css);
   }
@@ -520,8 +522,24 @@ const handMode=new HandMode({video:$('hand-video'),overlay:$('hand-overlay'),
       handSamples=[];clearHandContacts();cameraRotate.reset();
       fingerMarkers=[];needsRender=fingerPreview.clear()||needsRender;
     }
+    syncCameraBackdrop();
   }
 });
+function syncCameraBackdrop(){
+  const video=$('hand-background');
+  const show=handMode.active&&introPhase==='ready'&&!!handMode.stream;
+  stage.classList.toggle('camera-background',show);
+  if(show){
+    if(video.srcObject!==handMode.stream){video.srcObject=handMode.stream;void video.play().catch(()=>{});}
+  }else{video.pause();video.srcObject=null;}
+  renderer.setClearColor(lightingRig.current.background,show?0:1);
+  needsRender=true;
+}
+function cameraStagePoint(x,y,rect){
+  if(!stage.classList.contains('camera-background'))return {x,y,scaleX:1,scaleY:1};
+  const video=handMode.video;
+  return coverPoint(x,y,video.videoWidth,video.videoHeight,rect.width,rect.height);
+}
 $('hands-toggle').addEventListener('click',()=>{
   if(handMode.phase==='starting'||handMode.active)handMode.stop();
   else{clearGestures();setMode('squish');void unlockSound();void handMode.start();}
@@ -570,7 +588,10 @@ function handLoads(now,dt){
   for(const key of fingerHits.keys())if(!visibleKeys.has(key))fingerHits.delete(key);
   cameraIntent.prune(visibleKeys);
   for(const {hand,finger} of ordered){
-    const key=`${hand.id}:${finger.tip}`,x=rect.left+finger.x*rect.width,y=rect.top+finger.y*rect.height;
+    const key=`${hand.id}:${finger.tip}`;
+    const tip=cameraStagePoint(finger.x,finger.y,rect);
+    const palm=cameraStagePoint(1-hand.palm.x,hand.palm.y,rect);
+    const x=rect.left+tip.x*rect.width,y=rect.top+tip.y*rect.height;
     let contact=handContacts.get(key);
     if(contact&&(!usable||!finger.pressing||waitingForRelease)){cameraIntent.forget(key);contact=null;}
     const attachment=contact||probe(key,x,y,finger.pressing&&usable)||
@@ -578,14 +599,13 @@ function handLoads(now,dt){
     if(attachment)fingerMarkers.push({key,handId:hand.id,attachment,pressing:!!contact});
     if(!attachment){if(!contact)cameraIntent.forget(key);continue;}
     if(introPhase==='table'&&!waitingForRelease&&finger.pressing){
-      if(cameraIntent.ready(key,{pressing:true,tip:{x:finger.x,y:finger.y},
-        palm:hand.palm,sampleTime:handSampleTime,
+      if(cameraIntent.ready(key,{pressing:true,tip,palm,sampleTime:handSampleTime,
         hit:!!fingerHits.get(key)?.attachment&&now-fingerHits.get(key).lastSeen<=250}))tablePick=true;
       continue;
     }
     if(!usable||waitingForRelease||!finger.pressing)continue;
     if(!contact&&!cameraIntent.ready(key,{pressing:finger.pressing,
-      tip:{x:finger.x,y:finger.y},palm:hand.palm,sampleTime:handSampleTime,
+      tip,palm,sampleTime:handSampleTime,
       hit:!!fingerHits.get(key)?.attachment&&now-fingerHits.get(key).lastSeen<=250}))continue;
     if(!contact){
       cameraIntent.forget(key);
@@ -657,18 +677,19 @@ function biteLoads(now){
     biteTarget=null;pendingBite=false;bitePulse=null;mouthHover=null;return [];
   }
   const rect=canvas.getBoundingClientRect(),mouth=mouthSample;
-  const x=rect.left+mouth.x*rect.width,y=rect.top+mouth.y*rect.height;
+  const projected=cameraStagePoint(mouth.x,mouth.y,rect);
+  const x=rect.left+projected.x*rect.width,y=rect.top+projected.y*rect.height;
   if(mouthProbeTime!==mouthTime){
     mouthProbeTime=mouthTime;mesh.updateMatrixWorld();
     const hit=mouth.visible||pendingBite?mouthHit(x,y):null;mouthHover=mouth.visible?hit:null;
-    if(mouth.armed&&hit)biteTarget={...hit,x:mouth.x,y:mouth.y};
-    if(((mouth.visible||pendingBite)&&!hit)||(biteTarget&&Math.hypot(mouth.x-biteTarget.x,mouth.y-biteTarget.y)>.1))biteTarget=null;
+    if(mouth.armed&&hit)biteTarget={...hit,x:projected.x,y:projected.y};
+    if(((mouth.visible||pendingBite)&&!hit)||(biteTarget&&Math.hypot(projected.x-biteTarget.x,projected.y-biteTarget.y)>.1))biteTarget=null;
     if(pendingBite){
       pendingBite=false;
       if(hit&&biteTarget){
         // Match the mouth's apparent width, but bound the bite on the toy.
         const worldPerPixel=2*camera.position.distanceTo(mesh.position)*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))/(rect.height*camera.zoom);
-        const width=THREE.MathUtils.clamp(mouth.width*rect.width*worldPerPixel,.55,1.1);
+        const width=THREE.MathUtils.clamp(mouth.width*projected.scaleX*rect.width*worldPerPixel,.55,1.1);
         const teeth=[];
         for(const tooth of toothLayout(width)){
           const ca=Math.cos(mouth.angle),sa=Math.sin(mouth.angle);
@@ -729,7 +750,7 @@ function pickUp(){
 }
 function finishPickup(){
   introPhase='ready';mesh.position.set(0,0,0);mesh.quaternion.identity();mesh.scale.set(1,1,1);liftFrom=null;bedroom.visible=false;scene.fog=null;
-  shadow.visible=false;turnView();setMode(interactionMode);updateIntroUI();needsRender=true;
+  shadow.visible=false;turnView();setMode(interactionMode);updateIntroUI();syncCameraBackdrop();needsRender=true;
   canvas.focus({preventScroll:true});announce('Ready to squish.');
 }
 function putDown(){
@@ -743,6 +764,7 @@ function putDown(){
   const momentum=selectedToy.id==='pearl'?2:1;
   tableBody.release({velocity:[right.x*.55*momentum,0,right.z*.55*momentum],spin:[right.z*.95*momentum,.12,-right.x*.95*momentum]});
   introPhase='dropping';liftElapsed=0;
+  syncCameraBackdrop();
   bedroom.visible=true;bedroom.position.y=-3.4;
   shadow.visible=true;shadow.position.set(.1,-4.435,.05);shadow.material.opacity=0;
   scene.fog=new THREE.Fog(lightingRig.current.background,0,.3);updateIntroUI();needsRender=true;

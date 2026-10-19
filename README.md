@@ -281,3 +281,6 @@ Tap Photo in the toy picker and choose an image from your phone or computer. A c
 
 ## Softer bite marks (2.40.0)
 Bites now leave four broader, shallower impressions per dental arch instead of six narrow ones. The imprint has a smoother falloff and the short closing pressure is gentler, so marks read as a soft bite rather than a detailed tooth stamp. Bite detection, reset, and gradual mark smoothing during stretching are unchanged.
+
+## Camera background (2.41.0)
+When Camera mode is on and a squishy is picked up, the mirrored live camera fills the stage behind the transparent 3D rendering. Finger previews and bite targeting use the same centered crop as the displayed video, including on tall phones, so visible fingers line up with the model. The bedroom remains the presentation when the toy is on the table, and stopping the camera restores the normal background. The extra video view shares the existing local camera stream; it does not add a recording or upload.
